@@ -15,9 +15,9 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       const [apptRes, workersRes, usersRes] = await Promise.all([
-         api.get('/appointments'),
-         api.get('/users/workers'),
-         api.get('/users')
+         api.get('appointments'),
+         api.get('users/workers'),
+         api.get('users')
       ]);
       setAppointments(apptRes.data);
       setWorkers(workersRes.data);
@@ -34,7 +34,7 @@ const AdminDashboard = () => {
   const handleCreateWorker = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/users/workers', newWorker);
+      await api.post('users/workers', newWorker);
       toast.success('Worker created');
       setNewWorker({ name: '', email: '', password: '', schedule: '' });
       fetchData();

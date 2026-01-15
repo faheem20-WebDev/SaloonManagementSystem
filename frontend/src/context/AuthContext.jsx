@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
              setUser(null);
           } else {
              // Fetch latest user data from backend to be safe
-             const { data } = await api.get('/auth/me');
+             const { data } = await api.get('auth/me');
              setUser(data);
           }
         } catch (error) {
@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('auth/login', { email, password });
       localStorage.setItem('token', data.token);
       setUser(data);
       toast.success(`Welcome back, ${data.name}!`);
@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const { data } = await api.post('/auth/register', { name, email, password });
+      const { data } = await api.post('auth/register', { name, email, password });
       localStorage.setItem('token', data.token);
       setUser(data);
       toast.success('Registration successful!');

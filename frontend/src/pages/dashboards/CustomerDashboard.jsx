@@ -20,8 +20,8 @@ const CustomerDashboard = () => {
   const fetchData = async () => {
     try {
       const [apptRes, servicesRes] = await Promise.all([
-         api.get('/appointments'),
-         api.get('/services')
+         api.get('appointments'),
+         api.get('services')
       ]);
       setAppointments(apptRes.data);
       setServices(servicesRes.data);
@@ -37,7 +37,7 @@ const CustomerDashboard = () => {
   const handleBook = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/appointments', {
+      await api.post('appointments', {
         service: selectedService,
         date: date,
       });

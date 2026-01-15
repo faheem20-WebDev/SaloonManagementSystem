@@ -13,7 +13,7 @@ const Home = () => {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const { data } = await api.get('/services');
+        const { data } = await api.get('services');
         setServices(data);
       } catch (error) {
         console.error(error);

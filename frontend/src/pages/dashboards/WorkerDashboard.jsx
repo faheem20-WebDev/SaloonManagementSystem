@@ -13,7 +13,7 @@ const WorkerDashboard = () => {
 
   const fetchAppointments = async () => {
     try {
-      const { data } = await api.get('/appointments');
+      const { data } = await api.get('appointments');
       setAppointments(data);
     } catch (error) {
       console.error(error);
