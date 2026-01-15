@@ -11,6 +11,9 @@ connectDB();
 
 const app = express();
 
+// Trust proxy for express-rate-limit (needed for Hugging Face/Vercel)
+app.set('trust proxy', 1);
+
 // Set security HTTP headers
 app.use(helmet());
 
