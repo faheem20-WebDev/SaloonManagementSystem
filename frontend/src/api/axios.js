@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  // Direct link for deployment to avoid environment variable issues during demo
+  baseURL: 'https://muhammadfaheem52006-saloonmanagementsystembackend.hf.space/api',
 });
 
 // Add a request interceptor
