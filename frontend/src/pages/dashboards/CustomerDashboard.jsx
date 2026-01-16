@@ -86,7 +86,7 @@ const CustomerDashboard = () => {
       Stylist: ${receipt.worker ? receipt.worker.name : 'Auto-Assign Pending'}
       Appointment Time: ${new Date(receipt.date).toLocaleString()}
       
-      Status: ${receipt.status.toUpperCase()}
+      Status: ${receipt.status ? receipt.status.toUpperCase() : 'CONFIRMED'}
       -------------------
       Thank you for choosing Luxe.
     `;
