@@ -45,11 +45,20 @@ const CustomerDashboard = () => {
   const handleBook = async (e) => {
     e.preventDefault();
     try {
-      console.log("Booking appointment...");
-      const res = await api.post('appointments', {
-        service: selectedService,
+      console.log("--- ATTEMPTING BOOKING ---");
+      // Force convert to ensure it's not a string text
+      const payload = {
+        service: Number(selectedService), 
         date: date,
-      });
+      };
+      console.log("Sending Payload to Backend:", payload);
+
+      if (!payload.service || isNaN(payload.service)) {
+          toast.error("Please select a valid service");
+          return;
+      }
+
+      const res = await api.post('appointments', payload);
       
       console.log("Booking Response:", res.data);
       toast.success('Appointment booked successfully!');
