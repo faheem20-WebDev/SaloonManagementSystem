@@ -26,6 +26,11 @@ const CustomerDashboard = () => {
          api.get('services')
       ]);
       console.log("Appointments fetched:", apptRes.data);
+      console.log("Services fetched:", servicesRes.data);
+      if (servicesRes.data.length > 0) {
+          console.log("First Service ID type:", typeof servicesRes.data[0].id);
+          console.log("First Service ID value:", servicesRes.data[0].id);
+      }
       setAppointments(apptRes.data);
       setServices(servicesRes.data);
     } catch (error) {
