@@ -8,62 +8,93 @@ const { Op } = require('sequelize');
 // @access  Private (Customer)
 const addAppointment = async (req, res, next) => {
   try {
+    console.log('--- START BOOKING ---');
+    console.log('Request Body:', req.body);
+    console.log('Logged in User ID:', req.user.id);
+
     const { service, date } = req.body;
 
+    // 1. Basic Validation
     if (!service || !date) {
       res.status(400);
-      throw new Error('Please add all required fields');
+      throw new Error('Please add all required fields (service and date)');
     }
 
-    // --- AUTO ASSIGN WORKER LOGIC ---
-    // 1. Get all workers
-    const workers = await User.findAll({ where: { role: 'worker' } });
-    
+    // 2. Service ID Parsing (Safe)
+    let serviceIdInt;
+    try {
+        serviceIdInt = parseInt(service, 10);
+        if (isNaN(serviceIdInt)) throw new Error('Invalid Service ID format');
+    } catch (e) {
+        res.status(400);
+        throw new Error('Service ID must be a valid number');
+    }
+
+    // 3. Auto-Assign Logic (With Safety Net)
     let assignedWorkerId = null;
+    try {
+        console.log('Attempting Auto-Assign...');
+        const workers = await User.findAll({ where: { role: 'worker' } });
+        console.log(`System has ${workers.length} workers.`);
+        
+        if (workers && workers.length > 0) {
+            // Find busy workers at this specific datetime
+            const busyAppts = await Appointment.findAll({
+                where: { 
+                  date: date,
+                  status: { [Op.not]: 'cancelled' } 
+                },
+                attributes: ['workerId']
+            });
+            
+            const busyIds = busyAppts.map(a => a.workerId);
+            console.log('Busy worker IDs at this time:', busyIds);
 
-    if (workers.length > 0) {
-      // 2. Check availability (Simple: Who is free at this specific start time?)
-      // Ideally, we should check time ranges (start < requested_end AND end > requested_start)
-      // For this demo, we check if they have an appointment at the exact same time.
-      
-      const busyWorkerIds = await Appointment.findAll({
-        where: {
-          date: date,
-          status: { [Op.not]: 'cancelled' }
-        },
-        attributes: ['workerId']
-      }).then(appts => appts.map(a => a.workerId));
+            const freeWorkers = workers.filter(w => !busyIds.includes(w.id));
 
-      const availableWorkers = workers.filter(w => !busyWorkerIds.includes(w.id));
-
-      if (availableWorkers.length > 0) {
-        // Pick a random available worker to distribute load
-        const randomWorker = availableWorkers[Math.floor(Math.random() * availableWorkers.length)];
-        assignedWorkerId = randomWorker.id;
-      }
+            if (freeWorkers.length > 0) {
+                const randomWorker = freeWorkers[Math.floor(Math.random() * freeWorkers.length)];
+                assignedWorkerId = randomWorker.id;
+                console.log('Assigned Worker Name:', randomWorker.name);
+            } else {
+                console.log('No workers are currently free for this time slot.');
+            }
+        }
+    } catch (assignError) {
+        console.error('Auto-Assign Process Error (Continuing booking without stylist):', assignError.message);
+        // We don't crash the whole booking if auto-assignment logic fails
     }
-    // --------------------------------
 
+    // 4. Create Booking in DB
+    console.log('Attempting to save Appointment to Database...');
     const appointment = await Appointment.create({
       customerId: req.user.id,
-      workerId: assignedWorkerId, // Auto-assigned or null
-      serviceId: service,
-      date,
-      status: 'confirmed' // Auto-approve as requested
+      workerId: assignedWorkerId,
+      serviceId: serviceIdInt,
+      date: date,
+      status: 'confirmed'
     });
 
-    // Fetch full details for the receipt
-    const fullAppointment = await Appointment.findByPk(appointment.id, {
-      include: [
-        { model: User, as: 'customer', attributes: ['name', 'email'] },
-        { model: User, as: 'worker', attributes: ['name'] },
-        { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] }
-      ]
+    console.log('Booking Saved Successfully! ID:', appointment.id);
+
+    // 5. Fetch Full Details for Receipt (Include associations)
+    const fullAppt = await Appointment.findByPk(appointment.id, {
+        include: [
+            { model: User, as: 'customer', attributes: ['name', 'email'] },
+            { model: User, as: 'worker', attributes: ['name'] },
+            { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] }
+        ]
     });
 
-    res.status(201).json(fullAppointment);
+    res.status(201).json(fullAppt);
+
   } catch (error) {
-    next(error);
+    console.error('CRITICAL ERROR IN ADD APPOINTMENT:', error);
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+    res.status(statusCode).json({ 
+        message: error.message || 'Server Error: Booking Failed',
+        stack: process.env.NODE_ENV === 'production' ? null : error.stack 
+    });
   }
 };
 
@@ -79,7 +110,6 @@ const getAppointments = async (req, res, next) => {
     } else if (req.user.role === 'customer') {
       where = { customerId: req.user.id };
     }
-    // Admin sees all (empty where)
 
     const appointments = await Appointment.findAll({
       where,
@@ -109,19 +139,16 @@ const updateAppointmentStatus = async (req, res, next) => {
       throw new Error('Appointment not found');
     }
 
-    // Check permissions
     if (req.user.role !== 'admin' && req.user.role !== 'worker') {
       res.status(401);
       throw new Error('Not authorized');
     }
 
-    // Workers can only update their own appointments
     if (req.user.role === 'worker' && appointment.workerId !== req.user.id) {
        res.status(401);
        throw new Error('Not authorized to update this appointment');
     }
 
-    // Admin can also re-assign worker
     if (req.user.role === 'admin' && req.body.workerId) {
         appointment.workerId = req.body.workerId;
     }
@@ -132,7 +159,6 @@ const updateAppointmentStatus = async (req, res, next) => {
     
     await appointment.save();
 
-    // Return updated data with associations
     const updatedAppointment = await Appointment.findByPk(appointment.id, {
         include: [
           { model: User, as: 'customer', attributes: ['name', 'email'] },
@@ -160,7 +186,6 @@ const deleteAppointment = async (req, res, next) => {
     }
 
     await appointment.destroy();
-
     res.status(200).json({ id: req.params.id });
   } catch (error) {
     next(error);
