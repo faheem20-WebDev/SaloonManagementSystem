@@ -1,23 +1,30 @@
 # Luxe Saloon - Fullstack Management System
 
-A modern, luxurious salon management system built with React, Tailwind CSS, Node.js, Express, and MongoDB.
+A modern, luxurious salon management system built with **React**, **Tailwind CSS**, **Node.js**, **Express**, and **PostgreSQL**.
 
-## Features
+## 🚀 Tech Stack
 
-- **Customer Portal:** Book appointments, view history, and manage profile.
-- **Worker Portal:** View assigned tasks and update appointment status.
-- **Admin Dashboard:** Manage users, workers, services, and view all bookings.
-- **Security:** JWT Authentication, Bcrypt password hashing.
-- **UI/UX:** Responsive design, Dark mode, Smooth animations.
+- **Frontend:** React (Vite), Tailwind CSS, Framer Motion, Axios.
+- **Backend:** Node.js, Express.js.
+- **Database:** PostgreSQL (Managed via Neon DB & Sequelize ORM).
+- **Security:** JWT Authentication, Helmet, Express Rate Limit, Bcrypt password hashing.
+- **Deployment:** Vercel (Frontend), Hugging Face Spaces (Backend/Docker).
 
-## Prerequisites
+## ✨ Key Features
 
-- Node.js (v14+)
-- MongoDB (Running locally or Atlas URI)
+- **Intelligent Auto-Assignment:** System automatically assigns available stylists to bookings in real-time.
+- **Dynamic Receipt Generation:** Automatic receipt generation with unique IDs and stylist details.
+- **Receipt Download:** Option for customers to download their booking receipts as text/PDF.
+- **Role-Based Dashboards:**
+  - **Customer Portal:** Book appointments, view real-time history, and download receipts.
+  - **Worker Portal:** View and manage personal task schedules.
+  - **Admin Dashboard:** Full control over users, workers, services, and all salon bookings.
+- **Security Hardened:** Protection against DDoS (Rate limiting) and common web vulnerabilities (Helmet).
+- **Modern UI/UX:** Responsive design, Dark/Light mode support, and smooth luxury animations.
 
-## Setup Instructions
+## 🛠️ Setup Instructions
 
-### 1. Backend Setup
+### 1. Backend Setup (Node.js & PostgreSQL)
 
 1. Navigate to the backend folder:
    ```bash
@@ -27,20 +34,19 @@ A modern, luxurious salon management system built with React, Tailwind CSS, Node
    ```bash
    npm install
    ```
-3. Configure environment variables:
-   - Create a `.env` file in the `backend` directory (or use the provided `.env`).
-   - Ensure `MONGO_URI` is correct.
-4. Seed the database with sample data:
-   ```bash
-   npm run seed
+3. Configure environment variables in a `.env` file:
+   ```env
+   DATABASE_URL='your_postgresql_connection_string'
+   JWT_SECRET='your_strong_secret_key'
+   PORT=5000
+   NODE_ENV=development
    ```
-5. Start the backend server:
+4. Start the server:
    ```bash
    npm run dev
    ```
-   The server will run on `http://localhost:5000`.
 
-### 2. Frontend Setup
+### 2. Frontend Setup (React & Vite)
 
 1. Navigate to the frontend folder:
    ```bash
@@ -50,24 +56,34 @@ A modern, luxurious salon management system built with React, Tailwind CSS, Node
    ```bash
    npm install
    ```
-3. Start the development server:
+3. Configure environment:
+   - Create a `.env` file and set `VITE_API_URL=http://localhost:5000/api`
+4. Start the app:
    ```bash
    npm run dev
    ```
-   The application will be available at `http://localhost:5173`.
 
-## Sample Credentials
+## 🌍 Deployment
 
-- **Admin:** `admin@luxe.com` / `password123`
-- **Worker:** `alice@luxe.com` / `password123`
-- **Customer:** `jane@gmail.com` / `password123`
+### Backend (Hugging Face Spaces)
+The backend is Dockerized. Ensure the following secrets are set in your Space:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `PORT=7860`
 
-## Folder Structure
+### Frontend (Vercel)
+Set the `VITE_API_URL` environment variable to your Hugging Face Space URL followed by `/api`.
+
+## 📂 Folder Structure
 
 - `frontend/`: React + Vite + Tailwind
-- `backend/`: Node + Express + Mongoose
-- `backend/models/`: Database schemas
-- `backend/controllers/`: API logic
+- `backend/`: Node + Express + Sequelize
+- `backend/models/`: PostgreSQL Models (User, Appointment, Service)
+- `backend/controllers/`: Business logic & Auto-assignment rules
 - `backend/routes/`: API endpoints
-- `frontend/src/context/`: Auth state management
-- `frontend/src/pages/dashboards/`: Role-specific views
+- `frontend/src/api/`: Axios configuration
+- `frontend/src/context/`: Auth & Theme management
+- `frontend/src/pages/dashboards/`: Multi-role dashboard views
+
+## 📝 License
+This project is for demo purposes. Build with luxury in mind.
