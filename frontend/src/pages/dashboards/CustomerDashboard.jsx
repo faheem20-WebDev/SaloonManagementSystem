@@ -188,7 +188,7 @@ const CustomerDashboard = () => {
                     >
                       <option value="">Select a treatment...</option>
                       {services.map((service) => (
-                        <option key={service._id} value={service._id}>
+                        <option key={service.id} value={service.id}>
                           {service.name} (${service.price} • {service.duration}m)
                         </option>
                       ))}
@@ -225,7 +225,7 @@ const CustomerDashboard = () => {
              ) : (
                 appointments.map((appt, index) => (
                   <motion.div 
-                    key={appt.id || appt._id}
+                    key={appt.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
