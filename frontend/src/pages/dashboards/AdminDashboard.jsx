@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
-import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie } from 'react-icons/fa';
+import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus } from 'react-icons/fa';
 import DashboardLayout from '../../components/DashboardLayout';
 
 const AdminDashboard = () => {
@@ -10,18 +10,23 @@ const AdminDashboard = () => {
   const [appointments, setAppointments] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [users, setUsers] = useState([]);
+  const [services, setServices] = useState([]);
+  
   const [newWorker, setNewWorker] = useState({ name: '', email: '', password: '', schedule: '' });
+  const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
 
   const fetchData = async () => {
     try {
-      const [apptRes, workersRes, usersRes] = await Promise.all([
+      const [apptRes, workersRes, usersRes, servicesRes] = await Promise.all([
          api.get('appointments'),
          api.get('users/workers'),
-         api.get('users')
+         api.get('users'),
+         api.get('services')
       ]);
       setAppointments(apptRes.data);
       setWorkers(workersRes.data);
       setUsers(usersRes.data);
+      setServices(servicesRes.data);
     } catch (error) {
       console.error(error);
     }
@@ -40,6 +45,28 @@ const AdminDashboard = () => {
       fetchData();
     } catch (error) {
       toast.error('Failed to create worker');
+    }
+  };
+
+  const handleCreateService = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('services', newService);
+      toast.success('Service added successfully');
+      setNewService({ name: '', description: '', price: '', duration: '' });
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to add service');
+    }
+  };
+
+  const handleDeleteService = async (id) => {
+    if(window.confirm('Delete this service?')) {
+        try {
+            await api.delete(`/services/${id}`);
+            toast.success('Service removed');
+            fetchData();
+        } catch (error) { toast.error('Failed to delete service'); }
     }
   };
 
@@ -66,7 +93,8 @@ const AdminDashboard = () => {
   const sidebarItems = [
     { id: 'bookings', label: 'Bookings', icon: FaCalendarAlt },
     { id: 'workers', label: 'Stylists', icon: FaUserTie },
-    { id: 'users', label: 'Users', icon: FaUsers },
+    { id: 'customers', label: 'Customers', icon: FaUsers },
+    { id: 'services', label: 'Services', icon: FaCut },
   ];
 
   return (
@@ -155,36 +183,26 @@ const AdminDashboard = () => {
             </div>
         )}
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
+        {/* Customers Tab */}
+        {activeTab === 'customers' && (
              <div className="glass-panel rounded-2xl overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">
                         <tr>
                             <th className="px-6 py-4">Name</th>
                             <th className="px-6 py-4">Email</th>
-                            <th className="px-6 py-4">Role</th>
                             <th className="px-6 py-4">Joined</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-white/5">
-                        {users.map((u) => (
+                        {users.filter(u => u.role === 'customer').map((u) => (
                             <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">{u.name}</td>
                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{u.email}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded text-xs uppercase font-bold tracking-wider ${
-                                        u.role === 'admin' ? 'text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-400/30' :
-                                        u.role === 'worker' ? 'text-gold-600 dark:text-gold-400 border border-gold-200 dark:border-gold-400/30' :
-                                        'text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-500/30'
-                                    }`}>{u.role}</span>
-                                </td>
                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-500 text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 text-right">
-                                    {u.role !== 'admin' && (
-                                        <button onClick={() => handleDeleteUser(u.id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
-                                    )}
+                                    <button onClick={() => handleDeleteUser(u.id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
                                 </td>
                             </tr>
                         ))}
@@ -192,6 +210,51 @@ const AdminDashboard = () => {
                 </table>
              </div>
         )}
+
+        {/* Services Tab */}
+        {activeTab === 'services' && (
+            <div className="space-y-8">
+                {/* Form to Add Service */}
+                <div className="glass-panel p-8 rounded-2xl">
+                    <h3 className="text-xl font-serif mb-6 flex items-center gap-2 text-gray-900 dark:text-white"><FaPlus className="text-gold-500" /> Add New Treatment</h3>
+                    <form onSubmit={handleCreateService} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <input className="input-field" type="text" placeholder="Service Name" value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} required />
+                        <input className="input-field" type="number" placeholder="Price ($)" value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} required />
+                        <input className="input-field" type="number" placeholder="Duration (mins)" value={newService.duration} onChange={e => setNewService({...newService, duration: e.target.value})} required />
+                        <textarea className="input-field md:col-span-3 h-24" placeholder="Description" value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} required />
+                        <button type="submit" className="md:col-span-3 btn-gold py-4 font-bold uppercase tracking-widest">Create Service</button>
+                    </form>
+                </div>
+
+                {/* Services Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {services.map(service => (
+                        <div key={service.id} className="glass-card-hover p-6 rounded-2xl relative group border border-gray-100 dark:border-white/5">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="p-3 bg-gold-500/10 rounded-xl text-gold-600">
+                                    <FaCut size={24} />
+                                </div>
+                                <button onClick={() => handleDeleteService(service.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                    <FaTrash />
+                                </button>
+                            </div>
+                            <h3 className="text-xl font-display text-gray-900 dark:text-white mb-2">{service.name}</h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4 line-clamp-2">{service.description}</p>
+                            <div className="flex justify-between items-center pt-4 border-t border-gray-100 dark:border-white/5">
+                                <span className="text-gold-600 dark:text-gold-400 font-bold text-lg">${service.price}</span>
+                                <span className="text-xs text-gray-400 uppercase tracking-widest">{service.duration} mins</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
+
+    </DashboardLayout>
+  );
+};
+
+export default AdminDashboard;
 
     </DashboardLayout>
   );
