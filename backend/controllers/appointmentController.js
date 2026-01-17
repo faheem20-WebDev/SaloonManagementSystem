@@ -2,11 +2,6 @@ const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
-
-const Appointment = require('../models/Appointment');
-const User = require('../models/User');
-const Service = require('../models/Service');
-const { Op } = require('sequelize');
 const { sequelize } = require('../config/db'); // Import sequelize instance for transactions
 
 // @desc    Book an appointment
