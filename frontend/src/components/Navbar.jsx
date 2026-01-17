@@ -13,11 +13,6 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Hide Navbar completely if on dashboard routes to prevent double headers
-  if (location.pathname.startsWith('/dashboard')) {
-      return null; 
-  }
-
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);

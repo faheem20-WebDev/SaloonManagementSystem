@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -26,10 +26,12 @@ const DashboardRedirect = () => {
 
 function App() {
   const { theme } = useContext(ThemeContext);
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith('/dashboard');
 
   return (
     <div className="flex flex-col min-h-screen bg-gold-50 dark:bg-dark-950 text-gray-900 dark:text-gray-100 transition-colors duration-500">
-      <Navbar />
+      {!isDashboard && <Navbar />}
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -46,7 +48,7 @@ function App() {
           />
         </Routes>
       </main>
-      <Footer />
+      {!isDashboard && <Footer />}
       <ToastContainer position="bottom-right" theme={theme} />
     </div>
   );
