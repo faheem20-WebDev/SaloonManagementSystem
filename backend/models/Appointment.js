@@ -9,9 +9,17 @@ const Appointment = sequelize.define('Appointment', {
     primaryKey: true,
     autoIncrement: true
   },
-  date: {
+  date: { // Kept for reference, represents the start of the appointment
     type: DataTypes.DATE,
     allowNull: false
+  },
+  startTime: {
+    type: DataTypes.DATE,
+    allowNull: true // Allow null initially for migration, but logic will enforce it
+  },
+  endTime: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   status: {
     type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),

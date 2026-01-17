@@ -3,12 +3,20 @@ const User = require('../models/User');
 const Service = require('../models/Service');
 const { Op } = require('sequelize');
 
+const Appointment = require('../models/Appointment');
+const User = require('../models/User');
+const Service = require('../models/Service');
+const { Op } = require('sequelize');
+const { sequelize } = require('../config/db'); // Import sequelize instance for transactions
+
 // @desc    Book an appointment
 // @route   POST /api/appointments
 // @access  Private (Customer)
 const addAppointment = async (req, res, next) => {
+  const t = await sequelize.transaction(); // Start Transaction
+
   try {
-    console.log('--- START BOOKING ---');
+    console.log('--- START SECURE BOOKING ---');
     console.log('Request Body:', req.body);
     console.log('Logged in User ID:', req.user.id);
 
@@ -16,68 +24,113 @@ const addAppointment = async (req, res, next) => {
 
     // 1. Basic Validation
     if (!service || !date) {
+      await t.rollback();
       res.status(400);
       throw new Error('Please add all required fields (service and date)');
     }
 
-    // 2. Service ID Parsing (Safe)
+    // 2. Validate Service & Get Duration
     let serviceIdInt;
     try {
         serviceIdInt = parseInt(service, 10);
         if (isNaN(serviceIdInt)) throw new Error('Invalid Service ID format');
     } catch (e) {
+        await t.rollback();
         res.status(400);
         throw new Error('Service ID must be a valid number');
     }
 
-    // 3. Auto-Assign Logic (With Safety Net)
-    let assignedWorkerId = null;
-    try {
-        console.log('Attempting Auto-Assign...');
-        const workers = await User.findAll({ where: { role: 'worker' } });
-        console.log(`System has ${workers.length} workers.`);
-        
-        if (workers && workers.length > 0) {
-            // Find busy workers at this specific datetime
-            const busyAppts = await Appointment.findAll({
-                where: { 
-                  date: date,
-                  status: { [Op.not]: 'cancelled' } 
-                },
-                attributes: ['workerId']
-            });
-            
-            const busyIds = busyAppts.map(a => a.workerId);
-            console.log('Busy worker IDs at this time:', busyIds);
-
-            const freeWorkers = workers.filter(w => !busyIds.includes(w.id));
-
-            if (freeWorkers.length > 0) {
-                const randomWorker = freeWorkers[Math.floor(Math.random() * freeWorkers.length)];
-                assignedWorkerId = randomWorker.id;
-                console.log('Assigned Worker Name:', randomWorker.name);
-            } else {
-                console.log('No workers are currently free for this time slot.');
-            }
-        }
-    } catch (assignError) {
-        console.error('Auto-Assign Process Error (Continuing booking without stylist):', assignError.message);
-        // We don't crash the whole booking if auto-assignment logic fails
+    const serviceObj = await Service.findByPk(serviceIdInt, { transaction: t });
+    if (!serviceObj) {
+        await t.rollback();
+        res.status(404);
+        throw new Error('Service not found');
     }
 
-    // 4. Create Booking in DB
-    console.log('Attempting to save Appointment to Database...');
+    // 3. Calculate Start & End Times
+    const startTime = new Date(date);
+    if (isNaN(startTime.getTime())) {
+        await t.rollback();
+        res.status(400);
+        throw new Error('Invalid date format');
+    }
+
+    // Check if date is in the past
+    if (startTime < new Date()) {
+        await t.rollback();
+        res.status(400);
+        throw new Error('Cannot book appointments in the past');
+    }
+
+    const durationMinutes = serviceObj.duration;
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+
+    console.log(`Booking Time: ${startTime.toISOString()} to ${endTime.toISOString()} (${durationMinutes} mins)`);
+
+    // 4. Worker Assignment (Preserving Auto-Assign Logic but Validating)
+    let assignedWorkerId = null;
+    
+    // Fetch all workers
+    const workers = await User.findAll({ 
+        where: { role: 'worker' },
+        transaction: t
+    });
+
+    if (!workers || workers.length === 0) {
+        await t.rollback();
+        res.status(500);
+        throw new Error('No stylists available in the system');
+    }
+
+    // Find busy workers during this SPECIFIC interval
+    // Overlap Logic: (StartA < EndB) AND (EndA > StartB)
+    const conflictingAppointments = await Appointment.findAll({
+        where: {
+            status: { [Op.not]: 'cancelled' }, // Ignore cancelled
+            [Op.and]: [
+                { startTime: { [Op.lt]: endTime } }, // Existing start is before new end
+                { endTime: { [Op.gt]: startTime } }  // Existing end is after new start
+            ]
+        },
+        attributes: ['workerId'],
+        transaction: t,
+        lock: true // LOCK rows to prevent race conditions during read
+    });
+
+    const busyWorkerIds = conflictingAppointments.map(a => a.workerId);
+    console.log('Busy Worker IDs during this slot:', busyWorkerIds);
+
+    // Filter free workers
+    const freeWorkers = workers.filter(w => !busyWorkerIds.includes(w.id));
+
+    if (freeWorkers.length === 0) {
+        await t.rollback();
+        // Return 409 Conflict
+        res.status(409).json({ message: 'All stylists are fully booked for this time slot. Please choose another time.' });
+        return;
+    }
+
+    // Randomly assign one of the free workers
+    const randomWorker = freeWorkers[Math.floor(Math.random() * freeWorkers.length)];
+    assignedWorkerId = randomWorker.id;
+    console.log(`Assigned Worker: ${randomWorker.name} (ID: ${assignedWorkerId})`);
+
+
+    // 5. Create Booking (Insert)
     const appointment = await Appointment.create({
       customerId: req.user.id,
       workerId: assignedWorkerId,
       serviceId: serviceIdInt,
-      date: date,
+      date: startTime,      // Legacy support
+      startTime: startTime, // New Field
+      endTime: endTime,     // New Field
       status: 'confirmed'
-    });
+    }, { transaction: t });
 
-    console.log('Booking Saved Successfully! ID:', appointment.id);
+    await t.commit(); // COMMIT Transaction
+    console.log('Booking Committed! ID:', appointment.id);
 
-    // 5. Fetch Full Details for Receipt (Include associations)
+    // 6. Fetch Full Details for Receipt
     const fullAppt = await Appointment.findByPk(appointment.id, {
         include: [
             { model: User, as: 'customer', attributes: ['name', 'email'] },
@@ -89,6 +142,7 @@ const addAppointment = async (req, res, next) => {
     res.status(201).json(fullAppt);
 
   } catch (error) {
+    if (t) await t.rollback();
     console.error('CRITICAL ERROR IN ADD APPOINTMENT:', error);
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
     res.status(statusCode).json({ 
