@@ -97,7 +97,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-white/5">
                         {appointments.map((appt) => (
-                            <tr key={appt._id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                            <tr key={appt.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">{appt.customer?.name || 'Unknown'}</td>
                                 <td className="px-6 py-4 text-gold-600 dark:text-gold-400">{appt.service?.name}</td>
                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{appt.worker?.name || '—'}</td>
@@ -110,7 +110,7 @@ const AdminDashboard = () => {
                                     }`}>{appt.status}</span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button onClick={() => deleteAppointment(appt._id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
+                                    <button onClick={() => deleteAppointment(appt.id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
                                 </td>
                             </tr>
                         ))}
@@ -137,7 +137,7 @@ const AdminDashboard = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {workers.map(worker => (
-                        <div key={worker._id} className="glass-card-hover p-6 rounded-2xl relative group">
+                        <div key={worker.id} className="glass-card-hover p-6 rounded-2xl relative group">
                             <div className="flex items-start justify-between">
                                 <div>
                                     <h3 className="font-display text-2xl text-gray-900 dark:text-white mb-1">{worker.name}</h3>
@@ -147,7 +147,7 @@ const AdminDashboard = () => {
                                         {worker.schedule}
                                     </div>
                                 </div>
-                                <button onClick={() => handleDeleteUser(worker._id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:bg-red-500/10 rounded-full"><FaTrash /></button>
+                                <button onClick={() => handleDeleteUser(worker.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:bg-red-500/10 rounded-full"><FaTrash /></button>
                             </div>
                         </div>
                     ))}
@@ -170,7 +170,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-white/5">
                         {users.map((u) => (
-                            <tr key={u._id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                            <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                 <td className="px-6 py-4 font-medium text-gray-900 dark:text-gray-100">{u.name}</td>
                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{u.email}</td>
                                 <td className="px-6 py-4">
@@ -183,7 +183,7 @@ const AdminDashboard = () => {
                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-500 text-sm">{new Date(u.createdAt).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 text-right">
                                     {u.role !== 'admin' && (
-                                        <button onClick={() => handleDeleteUser(u._id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
+                                        <button onClick={() => handleDeleteUser(u.id)} className="text-gray-400 hover:text-red-500 transition-colors"><FaTrash /></button>
                                     )}
                                 </td>
                             </tr>

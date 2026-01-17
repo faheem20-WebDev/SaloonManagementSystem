@@ -52,7 +52,7 @@ const WorkerDashboard = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
            {appointments.map((appt) => (
-             <div key={appt._id} className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+             <div key={appt.id} className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-1 h-full bg-gold-500"></div>
                 
                 <div className="flex justify-between items-start mb-4">
@@ -79,13 +79,13 @@ const WorkerDashboard = () => {
                 {appt.status !== 'completed' && appt.status !== 'cancelled' && (
                    <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-white/5">
                       <button 
-                        onClick={() => updateStatus(appt._id, 'completed')}
+                        onClick={() => updateStatus(appt.id, 'completed')}
                         className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
                       >
                          <FaCheck /> Complete
                       </button>
                       <button 
-                        onClick={() => updateStatus(appt._id, 'cancelled')}
+                        onClick={() => updateStatus(appt.id, 'cancelled')}
                         className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm font-medium"
                       >
                          <FaTimes /> Cancel
