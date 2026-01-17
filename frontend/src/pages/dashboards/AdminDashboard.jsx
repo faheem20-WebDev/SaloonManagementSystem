@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
-import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus } from 'react-icons/fa';
+import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus, FaClock, FaCog, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import DashboardLayout from '../../components/DashboardLayout';
 
 const AdminDashboard = () => {
@@ -11,22 +11,35 @@ const AdminDashboard = () => {
   const [workers, setWorkers] = useState([]);
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
+  const [settings, setSettings] = useState({});
   
-  const [newWorker, setNewWorker] = useState({ name: '', email: '', password: '', schedule: '' });
+  const [newWorker, setNewWorker] = useState({ name: '', email: '', password: '', shiftStart: '09:00', shiftEnd: '21:00' });
   const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
+  
+  const [editingWorker, setEditingWorker] = useState(null);
+  const [shopHours, setShopHours] = useState({ shopOpenTime: '09:00', shopCloseTime: '21:00' });
 
   const fetchData = async () => {
     try {
-      const [apptRes, workersRes, usersRes, servicesRes] = await Promise.all([
+      const [apptRes, workersRes, usersRes, servicesRes, settingsRes] = await Promise.all([
          api.get('appointments'),
          api.get('users/workers'),
          api.get('users'),
-         api.get('services')
+         api.get('services'),
+         api.get('settings')
       ]);
       setAppointments(apptRes.data);
       setWorkers(workersRes.data);
       setUsers(usersRes.data);
       setServices(servicesRes.data);
+      
+      const s = {};
+      settingsRes.data.forEach(item => s[item.key] = item.value);
+      setSettings(s);
+      setShopHours({ 
+          shopOpenTime: s.shopOpenTime || '09:00', 
+          shopCloseTime: s.shopCloseTime || '21:00' 
+      });
     } catch (error) {
       console.error(error);
     }
@@ -36,16 +49,55 @@ const AdminDashboard = () => {
     fetchData();
   }, []);
 
+  const handleUpdateShopHours = async (e) => {
+    e.preventDefault();
+    try {
+        await Promise.all([
+            api.post('settings', { key: 'shopOpenTime', value: shopHours.shopOpenTime }),
+            api.post('settings', { key: 'shopCloseTime', value: shopHours.shopCloseTime })
+        ]);
+        toast.success('Shop hours updated');
+        fetchData();
+    } catch (error) {
+        toast.error('Failed to update shop hours');
+    }
+  };
+
   const handleCreateWorker = async (e) => {
     e.preventDefault();
     try {
       await api.post('users/workers', newWorker);
       toast.success('Worker created');
-      setNewWorker({ name: '', email: '', password: '', schedule: '' });
+      setNewWorker({ name: '', email: '', password: '', shiftStart: '09:00', shiftEnd: '21:00' });
       fetchData();
     } catch (error) {
       toast.error('Failed to create worker');
     }
+  };
+
+  const handleUpdateWorker = async (e) => {
+      e.preventDefault();
+      try {
+          await api.put(`/users/${editingWorker.id}`, editingWorker);
+          toast.success('Worker updated');
+          setEditingWorker(null);
+          fetchData();
+      } catch (error) {
+          toast.error('Update failed');
+      }
+  };
+
+  const toggleSkill = (serviceId) => {
+      if (!editingWorker) return;
+      let skills = Array.isArray(editingWorker.skills) ? [...editingWorker.skills] : [];
+      // Convert to string for consistent check
+      const idStr = String(serviceId);
+      if (skills.includes(idStr) || skills.includes(serviceId)) {
+          skills = skills.filter(s => String(s) !== idStr);
+      } else {
+          skills.push(idStr);
+      }
+      setEditingWorker({...editingWorker, skills});
   };
 
   const handleCreateService = async (e) => {
@@ -95,6 +147,7 @@ const AdminDashboard = () => {
     { id: 'workers', label: 'Stylists', icon: FaUserTie },
     { id: 'customers', label: 'Customers', icon: FaUsers },
     { id: 'services', label: 'Services', icon: FaCut },
+    { id: 'settings', label: 'Settings', icon: FaCog },
   ];
 
   return (
@@ -151,31 +204,91 @@ const AdminDashboard = () => {
         {/* Workers Tab */}
         {activeTab === 'workers' && (
             <div className="space-y-8">
-                {/* Form */}
+                {/* Modal for Editing Worker */}
+                {editingWorker && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                        <div className="bg-white dark:bg-dark-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl">
+                            <h3 className="text-2xl font-serif mb-6 text-gray-900 dark:text-white">Edit Stylist: {editingWorker.name}</h3>
+                            <form onSubmit={handleUpdateWorker} className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Shift Start</label>
+                                        <input className="input-field" type="time" value={editingWorker.shiftStart} onChange={e => setEditingWorker({...editingWorker, shiftStart: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Shift End</label>
+                                        <input className="input-field" type="time" value={editingWorker.shiftEnd} onChange={e => setEditingWorker({...editingWorker, shiftEnd: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Break Start</label>
+                                        <input className="input-field" type="time" value={editingWorker.breakStart} onChange={e => setEditingWorker({...editingWorker, breakStart: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Break End</label>
+                                        <input className="input-field" type="time" value={editingWorker.breakEnd} onChange={e => setEditingWorker({...editingWorker, breakEnd: e.target.value})} />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="text-xs uppercase text-gray-500 font-bold mb-3 block">Expertise (Skills)</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {services.map(s => {
+                                            const skills = Array.isArray(editingWorker.skills) ? editingWorker.skills : [];
+                                            const isActive = skills.includes(String(s.id)) || skills.includes(s.id);
+                                            return (
+                                                <button 
+                                                    key={s.id} 
+                                                    type="button"
+                                                    onClick={() => toggleSkill(s.id)}
+                                                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${isActive ? 'bg-gold-500 text-black' : 'bg-gray-100 dark:bg-white/5 text-gray-500'}`}
+                                                >
+                                                    {s.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-4 pt-4 border-t border-gray-100 dark:border-white/5">
+                                    <button type="submit" className="btn-gold flex-1 py-3">Save Changes</button>
+                                    <button type="button" onClick={() => setEditingWorker(null)} className="flex-1 py-3 border border-gray-200 dark:border-white/10 text-gray-500 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Form to Add Worker */}
                 <div className="glass-panel p-8 rounded-2xl">
                     <h3 className="text-xl font-serif mb-6 flex items-center gap-2 text-gray-900 dark:text-white"><FaUserPlus className="text-gold-500" /> Recruit Stylist</h3>
                     <form onSubmit={handleCreateWorker} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <input className="input-field" type="text" placeholder="Full Name" value={newWorker.name} onChange={e => setNewWorker({...newWorker, name: e.target.value})} required />
                         <input className="input-field" type="email" placeholder="Email Address" value={newWorker.email} onChange={e => setNewWorker({...newWorker, email: e.target.value})} required />
                         <input className="input-field" type="password" placeholder="Password" value={newWorker.password} onChange={e => setNewWorker({...newWorker, password: e.target.value})} required />
-                        <input className="input-field" type="text" placeholder="Schedule (e.g. 9-5)" value={newWorker.schedule} onChange={e => setNewWorker({...newWorker, schedule: e.target.value})} />
-                        <button type="submit" className="md:col-span-2 btn-gold py-4">Recruit Stylist</button>
+                        <div className="flex gap-2">
+                            <input className="input-field flex-1" type="time" title="Shift Start" value={newWorker.shiftStart} onChange={e => setNewWorker({...newWorker, shiftStart: e.target.value})} />
+                            <input className="input-field flex-1" type="time" title="Shift End" value={newWorker.shiftEnd} onChange={e => setNewWorker({...newWorker, shiftEnd: e.target.value})} />
+                        </div>
+                        <button type="submit" className="md:col-span-2 btn-gold py-4 font-bold uppercase tracking-widest">Recruit Stylist</button>
                     </form>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {workers.map(worker => (
-                        <div key={worker.id} className="glass-card-hover p-6 rounded-2xl relative group">
+                        <div key={worker.id} className="glass-card-hover p-6 rounded-2xl relative group border border-gray-100 dark:border-white/5">
                             <div className="flex items-start justify-between">
-                                <div>
+                                <div className="flex-1">
                                     <h3 className="font-display text-2xl text-gray-900 dark:text-white mb-1">{worker.name}</h3>
                                     <p className="text-gold-600 dark:text-gold-500 text-sm mb-4">Master Stylist</p>
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm">{worker.email}</p>
-                                    <div className="mt-4 px-3 py-1 bg-gray-100 dark:bg-white/5 inline-block rounded text-xs text-gray-500 dark:text-gray-300">
-                                        {worker.schedule}
+                                    <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <div className="flex items-center gap-2"><FaClock className="text-gold-500" /> {worker.shiftStart} — {worker.shiftEnd}</div>
+                                        <div className="flex items-center gap-2"><FaCut className="text-gold-500" /> {Array.isArray(worker.skills) ? worker.skills.length : 0} Skills</div>
                                     </div>
                                 </div>
-                                <button onClick={() => handleDeleteUser(worker.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-500 hover:bg-red-500/10 rounded-full"><FaTrash /></button>
+                                <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setEditingWorker(worker)} className="p-2 text-gold-600 hover:bg-gold-500/10 rounded-full"><FaEdit /></button>
+                                    <button onClick={() => handleDeleteUser(worker.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-full"><FaTrash /></button>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -246,6 +359,28 @@ const AdminDashboard = () => {
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+            <div className="max-w-xl">
+                <div className="glass-panel p-8 rounded-2xl">
+                    <h3 className="text-2xl font-serif mb-8 text-gray-900 dark:text-white flex items-center gap-3"><FaClock className="text-gold-500" /> Salon Hours</h3>
+                    <form onSubmit={handleUpdateShopHours} className="space-y-8">
+                        <div className="grid grid-cols-2 gap-8">
+                            <div>
+                                <label className="text-xs uppercase text-gray-500 font-bold mb-3 block">Opening Time</label>
+                                <input className="input-field text-xl" type="time" value={shopHours.shopOpenTime} onChange={e => setShopHours({...shopHours, shopOpenTime: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="text-xs uppercase text-gray-500 font-bold mb-3 block">Closing Time</label>
+                                <input className="input-field text-xl" type="time" value={shopHours.shopCloseTime} onChange={e => setShopHours({...shopHours, shopCloseTime: e.target.value})} />
+                            </div>
+                        </div>
+                        <button type="submit" className="btn-gold w-full py-4 font-bold tracking-widest flex items-center justify-center gap-3"><FaCheck /> Update Salon Hours</button>
+                    </form>
                 </div>
             </div>
         )}

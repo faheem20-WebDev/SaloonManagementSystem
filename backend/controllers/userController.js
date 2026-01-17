@@ -70,9 +70,42 @@ const deleteUser = async (req, res) => {
   res.status(200).json({ id: req.params.id });
 };
 
-module.exports = {
-  getWorkers,
-  createWorker,
-  getAllUsers,
-  deleteUser,
-};
+// @desc    Update user (Admin can update worker skills/timings)
+// @route   PUT /api/users/:id
+// @access  Private (Admin)
+const updateUser = async (req, res) => {
+    try {
+      const user = await User.findByPk(req.params.id);
+  
+      if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+      }
+  
+      // Update fields if provided in request
+      const fieldsToUpdate = [
+        'name', 'email', 'role', 'isActive', 
+        'skills', 'shiftStart', 'shiftEnd', 
+        'breakStart', 'breakEnd'
+      ];
+  
+      fieldsToUpdate.forEach(field => {
+        if (req.body[field] !== undefined) {
+          user[field] = req.body[field];
+        }
+      });
+  
+      await user.save();
+      res.status(200).json(user);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+  
+  module.exports = {
+    getWorkers,
+    createWorker,
+    getAllUsers,
+    deleteUser,
+    updateUser,
+  };

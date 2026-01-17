@@ -1,40 +1,37 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const Service = require('../models/Service');
+const Settings = require('../models/Settings');
 const { Op } = require('sequelize');
-const { sequelize } = require('../config/db'); // Import sequelize instance for transactions
+const { sequelize } = require('../config/db'); 
+
+// Helper to check if a time string (HH:mm) is between two others
+const isTimeBetween = (target, start, end) => {
+    return target >= start && target <= end;
+};
+
+// Helper to check if intervals overlap
+const isOverlapping = (startA, endA, startB, endB) => {
+    return startA < endB && endA > startB;
+};
 
 // @desc    Book an appointment
 // @route   POST /api/appointments
 // @access  Private (Customer)
 const addAppointment = async (req, res, next) => {
-  const t = await sequelize.transaction(); // Start Transaction
+  const t = await sequelize.transaction(); 
 
   try {
-    console.log('--- START SECURE BOOKING ---');
-    console.log('Request Body:', req.body);
-    console.log('Logged in User ID:', req.user.id);
-
     const { service, date } = req.body;
 
-    // 1. Basic Validation
     if (!service || !date) {
       await t.rollback();
       res.status(400);
       throw new Error('Please add all required fields (service and date)');
     }
 
-    // 2. Validate Service & Get Duration
-    let serviceIdInt;
-    try {
-        serviceIdInt = parseInt(service, 10);
-        if (isNaN(serviceIdInt)) throw new Error('Invalid Service ID format');
-    } catch (e) {
-        await t.rollback();
-        res.status(400);
-        throw new Error('Service ID must be a valid number');
-    }
-
+    // 1. Validate Service
+    let serviceIdInt = parseInt(service, 10);
     const serviceObj = await Service.findByPk(serviceIdInt, { transaction: t });
     if (!serviceObj) {
         await t.rollback();
@@ -42,90 +39,105 @@ const addAppointment = async (req, res, next) => {
         throw new Error('Service not found');
     }
 
-    // 3. Calculate Start & End Times
+    // 2. Calculate Times
     const startTime = new Date(date);
-    if (isNaN(startTime.getTime())) {
+    if (isNaN(startTime.getTime()) || startTime < new Date()) {
         await t.rollback();
         res.status(400);
-        throw new Error('Invalid date format');
-    }
-
-    // Check if date is in the past
-    if (startTime < new Date()) {
-        await t.rollback();
-        res.status(400);
-        throw new Error('Cannot book appointments in the past');
+        throw new Error('Invalid or past date provided');
     }
 
     const durationMinutes = serviceObj.duration;
     const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-    console.log(`Booking Time: ${startTime.toISOString()} to ${endTime.toISOString()} (${durationMinutes} mins)`);
+    // Format times for string comparison (HH:mm)
+    const startStr = startTime.toTimeString().slice(0, 5);
+    const endStr = endTime.toTimeString().slice(0, 5);
 
-    // 4. Worker Assignment (Preserving Auto-Assign Logic but Validating)
-    let assignedWorkerId = null;
+    // 3. Validate Shop Hours
+    const shopOpen = await Settings.findOne({ where: { key: 'shopOpenTime' }, transaction: t });
+    const shopClose = await Settings.findOne({ where: { key: 'shopCloseTime' }, transaction: t });
     
-    // Fetch all workers
-    const workers = await User.findAll({ 
-        where: { role: 'worker' },
+    // Default shop hours if not set
+    const openTime = shopOpen ? shopOpen.value : '09:00';
+    const closeTime = shopClose ? shopClose.value : '21:00';
+
+    if (!isTimeBetween(startStr, openTime, closeTime) || !isTimeBetween(endStr, openTime, closeTime)) {
+        await t.rollback();
+        res.status(400);
+        throw new Error(`Shop is closed. Our hours are ${openTime} to ${closeTime}.`);
+    }
+
+    // 4. Find Qualified Workers (Skill Matching + Shift + Break)
+    const allWorkers = await User.findAll({ 
+        where: { role: 'worker', isActive: true },
         transaction: t
     });
 
-    if (!workers || workers.length === 0) {
+    const qualifiedWorkers = allWorkers.filter(worker => {
+        // A. Skill Match
+        const workerSkills = Array.isArray(worker.skills) ? worker.skills : (worker.skills ? JSON.parse(worker.skills) : []);
+        const hasSkill = workerSkills.includes(serviceIdInt) || workerSkills.includes(String(serviceIdInt));
+        if (!hasSkill && workerSkills.length > 0) return false; // If they have defined skills, they must match. If empty, assume old worker/all-rounder.
+
+        // B. Shift Match
+        const inShift = isTimeBetween(startStr, worker.shiftStart, worker.shiftEnd) && 
+                        isTimeBetween(endStr, worker.shiftStart, worker.shiftEnd);
+        if (!inShift) return false;
+
+        // C. Break Check (Must NOT overlap with break)
+        const inBreak = isOverlapping(startStr, endStr, worker.breakStart, worker.breakEnd);
+        if (inBreak) return false;
+
+        return true;
+    });
+
+    if (qualifiedWorkers.length === 0) {
         await t.rollback();
-        res.status(500);
-        throw new Error('No stylists available in the system');
+        res.status(409).json({ message: 'No qualified stylists are available for this service at the selected time.' });
+        return;
     }
 
-    // Find busy workers during this SPECIFIC interval
-    // Overlap Logic: (StartA < EndB) AND (EndA > StartB)
+    // 5. Check for Existing Booking Conflicts among qualified workers
     const conflictingAppointments = await Appointment.findAll({
         where: {
-            status: { [Op.not]: 'cancelled' }, // Ignore cancelled
+            status: { [Op.not]: 'cancelled' },
+            workerId: { [Op.in]: qualifiedWorkers.map(w => w.id) },
             [Op.and]: [
-                { startTime: { [Op.lt]: endTime } }, // Existing start is before new end
-                { endTime: { [Op.gt]: startTime } }  // Existing end is after new start
+                { startTime: { [Op.lt]: endTime } }, 
+                { endTime: { [Op.gt]: startTime } }  
             ]
         },
         attributes: ['workerId'],
         transaction: t,
-        lock: true // LOCK rows to prevent race conditions during read
+        lock: true 
     });
 
     const busyWorkerIds = conflictingAppointments.map(a => a.workerId);
-    console.log('Busy Worker IDs during this slot:', busyWorkerIds);
+    const availableWorkers = qualifiedWorkers.filter(w => !busyWorkerIds.includes(w.id));
 
-    // Filter free workers
-    const freeWorkers = workers.filter(w => !busyWorkerIds.includes(w.id));
-
-    if (freeWorkers.length === 0) {
+    if (availableWorkers.length === 0) {
         await t.rollback();
-        // Return 409 Conflict
-        res.status(409).json({ message: 'All stylists are fully booked for this time slot. Please choose another time.' });
+        res.status(409).json({ message: 'All qualified stylists are busy during this time slot.' });
         return;
     }
 
-    // Randomly assign one of the free workers
-    const randomWorker = freeWorkers[Math.floor(Math.random() * freeWorkers.length)];
-    assignedWorkerId = randomWorker.id;
-    console.log(`Assigned Worker: ${randomWorker.name} (ID: ${assignedWorkerId})`);
+    // Randomly assign
+    const selectedWorker = availableWorkers[Math.floor(Math.random() * availableWorkers.length)];
 
-
-    // 5. Create Booking (Insert)
+    // 6. Create Booking
     const appointment = await Appointment.create({
       customerId: req.user.id,
-      workerId: assignedWorkerId,
+      workerId: selectedWorker.id,
       serviceId: serviceIdInt,
-      date: startTime,      // Legacy support
-      startTime: startTime, // New Field
-      endTime: endTime,     // New Field
+      date: startTime,
+      startTime: startTime,
+      endTime: endTime,
       status: 'confirmed'
     }, { transaction: t });
 
-    await t.commit(); // COMMIT Transaction
-    console.log('Booking Committed! ID:', appointment.id);
+    await t.commit(); 
 
-    // 6. Fetch Full Details for Receipt
     const fullAppt = await Appointment.findByPk(appointment.id, {
         include: [
             { model: User, as: 'customer', attributes: ['name', 'email'] },
@@ -138,12 +150,8 @@ const addAppointment = async (req, res, next) => {
 
   } catch (error) {
     if (t) await t.rollback();
-    console.error('CRITICAL ERROR IN ADD APPOINTMENT:', error);
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    res.status(statusCode).json({ 
-        message: error.message || 'Server Error: Booking Failed',
-        stack: process.env.NODE_ENV === 'production' ? null : error.stack 
-    });
+    res.status(statusCode).json({ message: error.message });
   }
 };
 

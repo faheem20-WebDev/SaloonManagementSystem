@@ -28,9 +28,38 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('customer', 'worker', 'admin'),
     defaultValue: 'customer'
   },
+  skills: {
+    type: DataTypes.JSON, // Array of service IDs
+    allowNull: true,
+    defaultValue: []
+  },
+  shiftStart: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: '09:00'
+  },
+  shiftEnd: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: '21:00'
+  },
+  breakStart: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: '13:00'
+  },
+  breakEnd: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: '14:00'
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
   schedule: {
     type: DataTypes.STRING,
-    allowNull: true // Only for workers
+    allowNull: true // Keeping for backward compatibility
   }
 }, {
   timestamps: true,

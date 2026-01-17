@@ -53,6 +53,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/appointments', require('./routes/appointmentRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/settings', require('./routes/settingsRoutes'));
 
 // Basic route to check if server is running
 app.get('/', (req, res) => {
