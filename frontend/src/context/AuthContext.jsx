@@ -6,39 +6,49 @@ import jwt_decode from 'jwt-decode';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  // Initialize state from localStorage immediately (Synchronous)
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkUser = async () => {
+    const verifyToken = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
           const decoded = jwt_decode(token);
-          // Optional: Check if token is expired
+          // Check if token is expired
           if (decoded.exp * 1000 < Date.now()) {
-             localStorage.removeItem('token');
-             setUser(null);
+             logout();
           } else {
-             // Fetch latest user data from backend to be safe
+             // Validate token with backend
              const { data } = await api.get('auth/me');
              setUser(data);
+             localStorage.setItem('user', JSON.stringify(data));
           }
         } catch (error) {
-          console.error("Auth check failed", error);
-          localStorage.removeItem('token');
-          setUser(null);
+          console.error("Token verification failed", error);
+          // Only logout if it's a 401 Unauthorized error
+          if (error.response?.status === 401) {
+            logout();
+          }
         }
+      } else {
+          setUser(null);
+          localStorage.removeItem('user');
       }
       setLoading(false);
     };
-    checkUser();
+    verifyToken();
   }, []);
 
   const login = async (email, password) => {
     try {
       const { data } = await api.post('auth/login', { email, password });
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       toast.success(`Welcome back, ${data.name}!`);
       return true;
@@ -52,6 +62,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data } = await api.post('auth/register', { name, email, password });
       localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       toast.success('Registration successful!');
       return true;
@@ -63,6 +74,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     toast.info('Logged out successfully');
   };
