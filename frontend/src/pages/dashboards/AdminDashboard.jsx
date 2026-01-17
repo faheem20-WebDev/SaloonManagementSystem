@@ -255,9 +255,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    </DashboardLayout>
-  );
-};
-
-export default AdminDashboard;
