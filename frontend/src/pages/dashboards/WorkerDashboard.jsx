@@ -14,6 +14,11 @@ const WorkerDashboard = () => {
   const fetchAppointments = async () => {
     try {
       const { data } = await api.get('appointments');
+      console.log('Fetched Appointments:', data); // Debug Log
+      if (data.length > 0) {
+        console.log('First Appointment Keys:', Object.keys(data[0])); // Check available keys
+        console.log('First Appointment ID:', data[0].id); // Check specific ID
+      }
       setAppointments(data);
     } catch (error) {
       console.error(error);
@@ -25,6 +30,11 @@ const WorkerDashboard = () => {
   }, []);
 
   const updateStatus = async (id, status) => {
+    console.log(`Attempting to update status. ID: ${id}, Status: ${status}`); // Debug Log
+    if (!id) {
+        toast.error("Error: Invalid Appointment ID");
+        return;
+    }
     try {
       await api.put(`/appointments/${id}`, { status });
       toast.success(`Appointment ${status}`);
