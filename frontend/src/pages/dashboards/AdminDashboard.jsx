@@ -13,62 +13,43 @@ const AdminDashboard = () => {
   const [services, setServices] = useState([]);
   const [settings, setSettings] = useState({});
   
-  const [newWorker, setNewWorker] = useState({ name: '', email: '', password: '', shiftStart: '09:00', shiftEnd: '21:00' });
-  const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
-  
-  const [editingWorker, setEditingWorker] = useState(null);
-  const [shopHours, setShopHours] = useState({ shopOpenTime: '09:00', shopCloseTime: '21:00' });
+  const [newWorker, setNewWorker] = useState({ 
+    name: '', 
+    email: '', 
+    password: '', 
+    shiftStart: '09:00', 
+    shiftEnd: '21:00',
+    breakStart: '13:00',
+    breakEnd: '14:00',
+    skills: [] 
+  });
 
-  const fetchData = async () => {
-    try {
-      const [apptRes, workersRes, usersRes, servicesRes, settingsRes] = await Promise.all([
-         api.get('appointments'),
-         api.get('users/workers'),
-         api.get('users'),
-         api.get('services'),
-         api.get('settings')
-      ]);
-      setAppointments(apptRes.data);
-      setWorkers(workersRes.data);
-      setUsers(usersRes.data);
-      setServices(servicesRes.data);
-      
-      const s = {};
-      settingsRes.data.forEach(item => s[item.key] = item.value);
-      setSettings(s);
-      setShopHours({ 
-          shopOpenTime: s.shopOpenTime || '09:00', 
-          shopCloseTime: s.shopCloseTime || '21:00' 
-      });
-    } catch (error) {
-      console.error(error);
+  const toggleNewWorkerSkill = (serviceId) => {
+    const idStr = String(serviceId);
+    let skills = [...newWorker.skills];
+    if (skills.includes(idStr)) {
+        skills = skills.filter(s => s !== idStr);
+    } else {
+        skills.push(idStr);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleUpdateShopHours = async (e) => {
-    e.preventDefault();
-    try {
-        await Promise.all([
-            api.post('settings', { key: 'shopOpenTime', value: shopHours.shopOpenTime }),
-            api.post('settings', { key: 'shopCloseTime', value: shopHours.shopCloseTime })
-        ]);
-        toast.success('Shop hours updated');
-        fetchData();
-    } catch (error) {
-        toast.error('Failed to update shop hours');
-    }
+    setNewWorker({...newWorker, skills});
   };
 
   const handleCreateWorker = async (e) => {
     e.preventDefault();
+    if (newWorker.skills.length === 0) {
+        toast.warning('Please select at least one skill for the worker');
+        return;
+    }
     try {
       await api.post('users/workers', newWorker);
-      toast.success('Worker created');
-      setNewWorker({ name: '', email: '', password: '', shiftStart: '09:00', shiftEnd: '21:00' });
+      toast.success('Worker created successfully');
+      setNewWorker({ 
+        name: '', email: '', password: '', 
+        shiftStart: '09:00', shiftEnd: '21:00', 
+        breakStart: '13:00', breakEnd: '14:00',
+        skills: [] 
+      });
       fetchData();
     } catch (error) {
       toast.error('Failed to create worker');
@@ -265,11 +246,43 @@ const AdminDashboard = () => {
                         <input className="input-field" type="text" placeholder="Full Name" value={newWorker.name} onChange={e => setNewWorker({...newWorker, name: e.target.value})} required />
                         <input className="input-field" type="email" placeholder="Email Address" value={newWorker.email} onChange={e => setNewWorker({...newWorker, email: e.target.value})} required />
                         <input className="input-field" type="password" placeholder="Password" value={newWorker.password} onChange={e => setNewWorker({...newWorker, password: e.target.value})} required />
-                        <div className="flex gap-2">
-                            <input className="input-field flex-1" type="time" title="Shift Start" value={newWorker.shiftStart} onChange={e => setNewWorker({...newWorker, shiftStart: e.target.value})} />
-                            <input className="input-field flex-1" type="time" title="Shift End" value={newWorker.shiftEnd} onChange={e => setNewWorker({...newWorker, shiftEnd: e.target.value})} />
+                        
+                        <div className="space-y-4">
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <label className="text-[10px] uppercase text-gray-400 font-bold mb-1 block">Shift</label>
+                                    <div className="flex gap-1">
+                                        <input className="input-field text-xs py-2 px-2" type="time" value={newWorker.shiftStart} onChange={e => setNewWorker({...newWorker, shiftStart: e.target.value})} />
+                                        <input className="input-field text-xs py-2 px-2" type="time" value={newWorker.shiftEnd} onChange={e => setNewWorker({...newWorker, shiftEnd: e.target.value})} />
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] uppercase text-gray-400 font-bold mb-1 block">Break</label>
+                                    <div className="flex gap-1">
+                                        <input className="input-field text-xs py-2 px-2" type="time" value={newWorker.breakStart} onChange={e => setNewWorker({...newWorker, breakStart: e.target.value})} />
+                                        <input className="input-field text-xs py-2 px-2" type="time" value={newWorker.breakEnd} onChange={e => setNewWorker({...newWorker, breakEnd: e.target.value})} />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <button type="submit" className="md:col-span-2 btn-gold py-4 font-bold uppercase tracking-widest">Recruit Stylist</button>
+
+                        <div className="md:col-span-2">
+                            <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Assign Skills</label>
+                            <div className="flex flex-wrap gap-2">
+                                {services.map(s => (
+                                    <button 
+                                        key={s.id} 
+                                        type="button"
+                                        onClick={() => toggleNewWorkerSkill(s.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${newWorker.skills.includes(String(s.id)) ? 'bg-gold-500 text-black shadow-lg shadow-gold-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 border border-transparent'}`}
+                                    >
+                                        {s.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <button type="submit" className="md:col-span-2 btn-gold py-4 font-bold uppercase tracking-widest mt-2">Recruit Stylist</button>
                     </form>
                 </div>
 

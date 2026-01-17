@@ -5,6 +5,7 @@ const {
   createWorker,
   getAllUsers,
   deleteUser,
+  updateUser
 } = require('../controllers/userController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
