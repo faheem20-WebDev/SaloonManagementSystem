@@ -132,21 +132,34 @@ const getAppointments = async (req, res, next) => {
 // @access  Private (Worker/Admin)
 const updateAppointmentStatus = async (req, res, next) => {
   try {
+    console.log(`--- UPDATE APPOINTMENT STATUS ---`);
+    console.log(`Appointment ID: ${req.params.id}`);
+    console.log(`User ID: ${req.user.id}, Role: ${req.user.role}`);
+    console.log(`Request Body:`, req.body);
+
     const appointment = await Appointment.findByPk(req.params.id);
 
     if (!appointment) {
+      console.log('Appointment not found');
       res.status(404);
       throw new Error('Appointment not found');
     }
 
+    console.log(`Current Appointment WorkerId: ${appointment.workerId}`);
+
     if (req.user.role !== 'admin' && req.user.role !== 'worker') {
+      console.log('User not admin or worker');
       res.status(401);
       throw new Error('Not authorized');
     }
 
-    if (req.user.role === 'worker' && appointment.workerId !== req.user.id) {
-       res.status(401);
-       throw new Error('Not authorized to update this appointment');
+    if (req.user.role === 'worker') {
+        // Ensure types match for comparison
+        if (Number(appointment.workerId) !== Number(req.user.id)) {
+            console.log(`Worker ID mismatch. Appt Worker: ${appointment.workerId}, User: ${req.user.id}`);
+            res.status(401);
+            throw new Error('Not authorized to update this appointment');
+        }
     }
 
     if (req.user.role === 'admin' && req.body.workerId) {
@@ -154,10 +167,12 @@ const updateAppointmentStatus = async (req, res, next) => {
     }
 
     if (req.body.status) {
+        console.log(`Updating status to: ${req.body.status}`);
         appointment.status = req.body.status;
     }
     
     await appointment.save();
+    console.log('Appointment saved.');
 
     const updatedAppointment = await Appointment.findByPk(appointment.id, {
         include: [
@@ -167,8 +182,10 @@ const updateAppointmentStatus = async (req, res, next) => {
         ]
     });
 
+    console.log('Returning updated appointment.');
     res.status(200).json(updatedAppointment);
   } catch (error) {
+    console.error('ERROR in updateAppointmentStatus:', error);
     next(error);
   }
 };
