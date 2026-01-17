@@ -116,36 +116,93 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* Full Screen Mobile Menu */}
+      {/* Mobile Side Drawer */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: '-100%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: '-100%' }}
-            transition={{ duration: 0.5, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 bg-white dark:bg-dark-950 z-40 flex items-center justify-center"
-          >
-            <div className="text-center space-y-8">
-               {['Home', 'Services', 'Dashboard', 'Login'].map((item) => (
-                 <div key={item} className="overflow-hidden">
-                   <motion.div 
-                      initial={{ y: 100 }} 
-                      animate={{ y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.2 }}
-                   >
-                     <Link 
-                        to={item === 'Home' ? '/' : `/${item.toLowerCase()}`} 
-                        onClick={() => setIsOpen(false)}
-                        className="block font-display text-5xl text-gray-900 dark:text-white hover:text-gold-500 transition-colors"
-                     >
-                        {item}
-                     </Link>
-                   </motion.div>
-                 </div>
-               ))}
-            </div>
-          </motion.div>
+          <>
+            {/* Backdrop */}
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsOpen(false)}
+                className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm"
+            />
+
+            {/* Side Drawer */}
+            <motion.div 
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm bg-white dark:bg-dark-950 z-50 md:hidden shadow-2xl border-r border-gray-200 dark:border-white/10 flex flex-col"
+            >
+                {/* Drawer Header */}
+                <div className="p-6 border-b border-gray-100 dark:border-white/5 flex justify-between items-center bg-gray-50/50 dark:bg-white/5">
+                    <div className="font-display text-2xl font-bold tracking-widest text-gray-900 dark:text-white flex items-center gap-2">
+                        <span className="text-3xl text-gold-500">✦</span>
+                        LUXE
+                    </div>
+                    <button onClick={() => setIsOpen(false)} className="p-2 text-gray-500 hover:text-red-500 transition-colors">
+                        <FaTimes size={24} />
+                    </button>
+                </div>
+
+                {/* Drawer Links */}
+                <div className="flex-1 overflow-y-auto py-6 px-6 space-y-6">
+                    {/* Navigation Links */}
+                    <div className="space-y-2">
+                        {['Home', 'Services', 'About'].map((item) => (
+                        <Link 
+                            key={item} 
+                            to={item === 'Home' ? '/' : `/${item.toLowerCase()}`}
+                            onClick={() => setIsOpen(false)}
+                            className="block text-2xl font-display text-gray-800 dark:text-gray-100 hover:text-gold-600 dark:hover:text-gold-500 transition-colors py-2"
+                        >
+                            {item}
+                        </Link>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Drawer Footer (Actions) */}
+                <div className="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/5">
+                    {user ? (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-full bg-gold-500/20 flex items-center justify-center text-gold-600">
+                                    <span className="font-bold text-lg">{user.name.charAt(0).toUpperCase()}</span>
+                                </div>
+                                <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">Hello, {user.name.split(' ')[0]}</p>
+                                    <p className="text-xs text-gray-500">Logged In</p>
+                                </div>
+                            </div>
+                            <Link 
+                                to="/dashboard" 
+                                onClick={() => setIsOpen(false)}
+                                className="block w-full text-center bg-gray-900 dark:bg-white text-white dark:text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gold-500 dark:hover:bg-gold-400 transition-all shadow-lg"
+                            >
+                                Go to Dashboard
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <Link to="/login" onClick={() => setIsOpen(false)}>
+                                <button className="w-full py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-bold uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-xs">
+                                    Login
+                                </button>
+                            </Link>
+                            <Link to="/register" onClick={() => setIsOpen(false)}>
+                                <button className="w-full py-3 rounded-xl bg-gold-500 text-black font-bold uppercase tracking-wider hover:bg-gold-400 transition-colors shadow-lg text-xs">
+                                    Sign Up
+                                </button>
+                            </Link>
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>
