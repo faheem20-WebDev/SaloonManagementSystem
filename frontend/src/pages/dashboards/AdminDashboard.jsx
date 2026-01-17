@@ -269,16 +269,20 @@ const AdminDashboard = () => {
                         <div className="md:col-span-2">
                             <label className="text-xs uppercase text-gray-500 font-bold mb-2 block">Assign Skills</label>
                             <div className="flex flex-wrap gap-2">
-                                {services.map(s => (
-                                    <button 
-                                        key={s.id} 
-                                        type="button"
-                                        onClick={() => toggleNewWorkerSkill(s.id)}
-                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${newWorker.skills.includes(String(s.id)) ? 'bg-gold-500 text-black shadow-lg shadow-gold-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 border border-transparent'}`}
-                                    >
-                                        {s.name}
-                                    </button>
-                                ))}
+                                {services && services.length > 0 ? (
+                                    services.map(s => (
+                                        <button 
+                                            key={s.id} 
+                                            type="button"
+                                            onClick={() => toggleNewWorkerSkill(s.id)}
+                                            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${newWorker.skills && newWorker.skills.includes(String(s.id)) ? 'bg-gold-500 text-black shadow-lg shadow-gold-500/20' : 'bg-gray-100 dark:bg-white/5 text-gray-500 border border-transparent'}`}
+                                        >
+                                            {s.name}
+                                        </button>
+                                    ))
+                                ) : (
+                                    <p className="text-gray-400 text-xs italic">No services available. Create services first.</p>
+                                )}
                             </div>
                         </div>
 
