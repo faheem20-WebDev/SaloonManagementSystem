@@ -68,7 +68,7 @@ const AdminDashboard = () => {
       }
   };
 
-  const toggleSkill = (serviceId) => {
+  const toggleEditWorkerSkill = (serviceId) => {
       if (!editingWorker) return;
       let skills = Array.isArray(editingWorker.skills) ? [...editingWorker.skills] : [];
       // Convert to string for consistent check
@@ -220,7 +220,7 @@ const AdminDashboard = () => {
                                                 <button 
                                                     key={s.id} 
                                                     type="button"
-                                                    onClick={() => toggleSkill(s.id)}
+                                                    onClick={() => toggleEditWorkerSkill(s.id)}
                                                     className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${isActive ? 'bg-gold-500 text-black' : 'bg-gray-100 dark:bg-white/5 text-gray-500'}`}
                                                 >
                                                     {s.name}

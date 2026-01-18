@@ -149,7 +149,10 @@ const addAppointment = async (req, res, next) => {
     res.status(201).json(fullAppt);
 
   } catch (error) {
-    if (t) await t.rollback();
+    if (t && !t.finished) {
+        await t.rollback();
+    }
+    console.error('CRITICAL ERROR IN ADD APPOINTMENT:', error);
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
     res.status(statusCode).json({ message: error.message });
   }
