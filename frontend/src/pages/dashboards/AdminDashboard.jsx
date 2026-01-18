@@ -27,6 +27,36 @@ const AdminDashboard = () => {
   const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
   const [editingWorker, setEditingWorker] = useState(null);
 
+  const fetchData = async () => {
+    try {
+      const [apptRes, workersRes, usersRes, servicesRes, settingsRes] = await Promise.all([
+         api.get('appointments'),
+         api.get('users/workers'),
+         api.get('users'),
+         api.get('services'),
+         api.get('settings')
+      ]);
+      setAppointments(apptRes.data);
+      setWorkers(workersRes.data);
+      setUsers(usersRes.data);
+      setServices(servicesRes.data);
+      
+      const s = {};
+      settingsRes.data.forEach(item => s[item.key] = item.value);
+      setSettings(s);
+      setSalonHours({ 
+          shopOpenTime: s.shopOpenTime || '09:00', 
+          shopCloseTime: s.shopCloseTime || '21:00' 
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const toggleNewWorkerSkill = (serviceId) => {
     const idStr = String(serviceId);
     let skills = [...newWorker.skills];
