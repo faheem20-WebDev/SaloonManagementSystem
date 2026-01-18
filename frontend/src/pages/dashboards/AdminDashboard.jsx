@@ -27,6 +27,7 @@ const AdminDashboard = () => {
   const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
   const [editingWorker, setEditingWorker] = useState(null);
 
+  // Fetch initial data for the dashboard
   const fetchData = async () => {
     try {
       const [apptRes, workersRes, usersRes, servicesRes, settingsRes] = await Promise.all([
