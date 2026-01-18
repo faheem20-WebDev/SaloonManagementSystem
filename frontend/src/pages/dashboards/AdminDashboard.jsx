@@ -52,6 +52,22 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdateShopHours = async (e) => {
+    e.preventDefault();
+    try {
+        await Promise.all([
+            api.post('settings', { key: 'shopOpenTime', value: salonHours.shopOpenTime }),
+            api.post('settings', { key: 'shopCloseTime', value: salonHours.shopCloseTime })
+        ]);
+        toast.success('Shop hours updated successfully');
+        // We call fetchData separately without awaiting so it doesn't trigger the catch block if fetch fails
+        fetchData();
+    } catch (error) {
+        console.error(error);
+        toast.error('Failed to update shop hours');
+    }
+  };
+
   const handleCreateWorker = async (e) => {
     e.preventDefault();
     if (newWorker.skills.length === 0) {
@@ -104,9 +120,12 @@ const AdminDashboard = () => {
       await api.post('services', newService);
       toast.success('Service added successfully');
       setNewService({ name: '', description: '', price: '', duration: '' });
+      // Call fetchData independently
       fetchData();
     } catch (error) {
-      toast.error('Failed to add service');
+      console.error(error);
+      const errorMsg = error.response?.data?.message || 'Failed to add service';
+      toast.error(errorMsg);
     }
   };
 
