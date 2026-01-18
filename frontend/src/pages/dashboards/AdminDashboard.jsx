@@ -12,6 +12,7 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
   const [settings, setSettings] = useState({});
+  const [salonHours, setSalonHours] = useState({ shopOpenTime: '09:00', shopCloseTime: '21:00' });
   
   const [newWorker, setNewWorker] = useState({ 
     name: '', 
@@ -23,6 +24,8 @@ const AdminDashboard = () => {
     breakEnd: '14:00',
     skills: [] 
   });
+  const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: '' });
+  const [editingWorker, setEditingWorker] = useState(null);
 
   const toggleNewWorkerSkill = (serviceId) => {
     const idStr = String(serviceId);
@@ -383,7 +386,7 @@ const AdminDashboard = () => {
         )}
 
         {/* Settings Tab */}
-        {activeTab === 'settings' && shopHours && (
+        {activeTab === 'settings' && (
             <div className="max-w-xl">
                 <div className="glass-panel p-8 rounded-2xl">
                     <h3 className="text-2xl font-serif mb-8 text-gray-900 dark:text-white flex items-center gap-3"><FaClock className="text-gold-500" /> Salon Hours</h3>
@@ -391,11 +394,11 @@ const AdminDashboard = () => {
                         <div className="grid grid-cols-2 gap-8">
                             <div>
                                 <label className="text-xs uppercase text-gray-500 font-bold mb-3 block">Opening Time</label>
-                                <input className="input-field text-xl" type="time" value={shopHours.shopOpenTime || '09:00'} onChange={e => setShopHours({...shopHours, shopOpenTime: e.target.value})} />
+                                <input className="input-field text-xl" type="time" value={salonHours?.shopOpenTime || '09:00'} onChange={e => setSalonHours({...salonHours, shopOpenTime: e.target.value})} />
                             </div>
                             <div>
                                 <label className="text-xs uppercase text-gray-500 font-bold mb-3 block">Closing Time</label>
-                                <input className="input-field text-xl" type="time" value={shopHours.shopCloseTime || '21:00'} onChange={e => setShopHours({...shopHours, shopCloseTime: e.target.value})} />
+                                <input className="input-field text-xl" type="time" value={salonHours?.shopCloseTime || '21:00'} onChange={e => setSalonHours({...salonHours, shopCloseTime: e.target.value})} />
                             </div>
                         </div>
                         <button type="submit" className="btn-gold w-full py-4 font-bold tracking-widest flex items-center justify-center gap-3"><FaCheck /> Update Salon Hours</button>
