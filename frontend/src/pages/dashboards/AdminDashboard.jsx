@@ -42,7 +42,9 @@ const AdminDashboard = () => {
       setServices(servicesRes.data);
       
       const s = {};
-      settingsRes.data.forEach(item => s[item.key] = item.value);
+      if (settingsRes.data && Array.isArray(settingsRes.data)) {
+          settingsRes.data.forEach(item => s[item.key] = item.value);
+      }
       setSettings(s);
       setSalonHours({ 
           shopOpenTime: s.shopOpenTime || '09:00', 
