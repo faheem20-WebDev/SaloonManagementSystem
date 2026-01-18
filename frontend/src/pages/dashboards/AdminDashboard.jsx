@@ -6,6 +6,7 @@ import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus, 
 import DashboardLayout from '../../components/DashboardLayout';
 
 const AdminDashboard = () => {
+  console.log("Admin Dashboard Loaded v2"); // Version Check
   const [activeTab, setActiveTab] = useState('bookings');
   const [appointments, setAppointments] = useState([]);
   const [workers, setWorkers] = useState([]);
