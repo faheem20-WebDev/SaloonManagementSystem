@@ -70,8 +70,9 @@ const Navbar = () => {
 
             {user ? (
                <div className="flex items-center gap-4">
+                  {/* Only show Dashboard link for all logged in users, but we could customize label */}
                   <Link to="/dashboard" className="text-sm font-medium text-gold-600 dark:text-gold-400 hover:text-black dark:hover:text-white transition-colors">
-                    DASHBOARD
+                    {user.role === 'customer' ? 'MY BOOKINGS' : 'DASHBOARD'}
                   </Link>
                   <button 
                     onClick={handleLogout} 
@@ -170,16 +171,35 @@ const Navbar = () => {
                                 </div>
                                 <div>
                                     <p className="font-medium text-gray-900 dark:text-white">Hello, {user.name.split(' ')[0]}</p>
-                                    <p className="text-xs text-gray-500">Logged In</p>
+                                    <p className="text-xs text-gray-500 uppercase">{user.role}</p>
                                 </div>
                             </div>
-                            <Link 
-                                to="/dashboard" 
-                                onClick={() => setIsOpen(false)}
-                                className="block w-full text-center bg-gray-900 dark:bg-white text-white dark:text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gold-500 dark:hover:bg-gold-400 transition-all shadow-lg"
+                            
+                            {/* Role-based conditional buttons */}
+                            {user.role === 'customer' ? (
+                                <Link 
+                                    to="/dashboard" 
+                                    onClick={() => setIsOpen(false)}
+                                    className="block w-full text-center bg-gray-900 dark:bg-white text-white dark:text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gold-500 dark:hover:bg-gold-400 transition-all shadow-lg text-sm"
+                                >
+                                    Go to Dashboard
+                                </Link>
+                            ) : (
+                                <Link 
+                                    to="/dashboard" 
+                                    onClick={() => setIsOpen(false)}
+                                    className="block w-full text-center border border-gray-900/20 dark:border-white/20 text-gray-900 dark:text-white py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-100 dark:hover:bg-white/5 transition-all text-sm"
+                                >
+                                    Admin/Staff Panel
+                                </Link>
+                            )}
+                            
+                            <button 
+                                onClick={handleLogout}
+                                className="w-full py-3 text-red-500 font-bold uppercase tracking-widest text-xs hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
                             >
-                                Go to Dashboard
-                            </Link>
+                                Logout
+                            </button>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-4">

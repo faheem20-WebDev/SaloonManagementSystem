@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
 import { Link } from 'react-router-dom';
+import AuthContext from '../context/AuthContext';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { FaArrowRight, FaStar } from 'react-icons/fa';
 
 const Home = () => {
+  const { user } = useContext(AuthContext);
   const [services, setServices] = useState([]);
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
@@ -55,11 +57,25 @@ const Home = () => {
               </h2>
               
               <div className="flex flex-col md:flex-row gap-6 justify-center items-center">
-                 <Link to="/register" className="btn-gold group flex items-center gap-3 shadow-lg dark:shadow-[0_0_20px_rgba(212,175,55,0.4)]">
-                    Book Appointment 
-                    <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
-                 </Link>
-                 <Link to="/services" className="text-sm uppercase tracking-widest border-b border-transparent hover:border-gold-500 pb-1 transition-all text-gray-900 dark:text-white">
+                 {/* Conditional Booking Button */}
+                 {(!user || user.role === 'customer') && (
+                    <Link 
+                        to={user ? "/dashboard" : "/register"} 
+                        className="btn-gold group flex items-center gap-3 shadow-lg dark:shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                    >
+                        {user ? "Book Now" : "Book Appointment"} 
+                        <FaArrowRight className="group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                 )}
+
+                 {/* For Admin/Worker, we show a direct link to their portal instead of a booking button */}
+                 {user && (user.role === 'admin' || user.role === 'worker') && (
+                    <Link to="/dashboard" className="btn-gold px-10 py-4 font-bold uppercase tracking-widest">
+                        Go to Portal
+                    </Link>
+                 )}
+
+                 <Link to="/services" className="text-sm uppercase tracking-widest border-b border-transparent hover:border-gold-500 pb-1 transition-all text-gray-900 dark:text-white font-medium">
                     Discover Services
                  </Link>
               </div>
@@ -99,7 +115,7 @@ const Home = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
            {services.slice(0, 4).map((service, idx) => (
              <motion.div 
-               key={service._id}
+               key={service.id}
                initial={{ opacity: 0, y: 50 }}
                whileInView={{ opacity: 1, y: 0 }}
                viewport={{ once: true }}
