@@ -72,7 +72,20 @@ const AdminDashboard = () => {
     setNewWorker({...newWorker, skills});
   };
 
-
+  const handleUpdateShopHours = async (e) => {
+    e.preventDefault();
+    try {
+        await Promise.all([
+            api.post('settings', { key: 'shopOpenTime', value: salonHours.shopOpenTime }),
+            api.post('settings', { key: 'shopCloseTime', value: salonHours.shopCloseTime })
+        ]);
+        toast.success('Shop hours updated successfully');
+        fetchData();
+    } catch (error) {
+        console.error(error);
+        toast.error('Failed to update shop hours');
+    }
+  };
 
   const handleCreateWorker = async (e) => {
     e.preventDefault();
