@@ -6,8 +6,15 @@ const { Op } = require('sequelize');
 const { sequelize } = require('../config/db'); 
 
 // Helper to check if a time string (HH:mm) is between two others
+// Handles midnight crossing (e.g. 23:00 to 02:00)
 const isTimeBetween = (target, start, end) => {
-    return target >= start && target <= end;
+    if (start <= end) {
+        return target >= start && target <= end;
+    } else {
+        // Crosses midnight (e.g. start 13:00, end 02:00)
+        // Valid if target is after start (13:00..23:59) OR before end (00:00..02:00)
+        return target >= start || target <= end;
+    }
 };
 
 // Helper to check if intervals overlap
