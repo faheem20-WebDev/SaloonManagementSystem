@@ -24,7 +24,13 @@ A modern, luxurious salon management system built with **React**, **Tailwind CSS
 
 ## 🛠️ Setup Instructions
 
-### 1. Backend Setup (Node.js & PostgreSQL)
+### 1. Windows Quick Start (One-Click)
+
+If you are on Windows, you can simply run the automated batch script to start both servers:
+1. Double-click **`start-app.bat`** in the root directory.
+2. This will launch the Backend (port 5000) and Frontend (port 5173) in separate command windows.
+
+### 2. Backend Setup (Node.js & PostgreSQL)
 
 1. Navigate to the backend folder:
    ```bash
@@ -46,7 +52,7 @@ A modern, luxurious salon management system built with **React**, **Tailwind CSS
    npm run dev
    ```
 
-### 2. Frontend Setup (React & Vite)
+### 3. Frontend Setup (React & Vite)
 
 1. Navigate to the frontend folder:
    ```bash
@@ -78,7 +84,7 @@ Set the `VITE_API_URL` environment variable to your Hugging Face Space URL follo
 
 - `frontend/`: React + Vite + Tailwind
 - `backend/`: Node + Express + Sequelize
-- `backend/models/`: PostgreSQL Models (User, Appointment, Service)
+- `backend/models/`: PostgreSQL Models (User, Appointment, Service, Settings)
 - `backend/controllers/`: Business logic & Auto-assignment rules
 - `backend/routes/`: API endpoints
 - `frontend/src/api/`: Axios configuration
