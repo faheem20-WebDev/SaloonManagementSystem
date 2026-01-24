@@ -1,11 +1,13 @@
 import axios from 'axios';
 
+// Professional way: Priority to ENV, then Fallback
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://muhammadfaheem52006-saloonmanagementsystembackend.hf.space/api';
+
 const instance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
-  withCredentials: true, // Necessary for HttpOnly Cookies
+  baseURL: BACKEND_URL,
+  withCredentials: true, 
 });
 
-// We no longer need the interceptor to manually add the Authorization header
-// because cookies are sent automatically by the browser with each request.
+console.log("Axios connected to:", BACKEND_URL); // Debugging line
 
 export default instance;

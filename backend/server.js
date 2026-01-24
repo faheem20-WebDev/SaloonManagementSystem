@@ -26,16 +26,16 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Update CORS to allow requests with credentials (Cookies)
-const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000']; 
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:3000',
+  'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app' // Add your Vercel URL here if known
+]; 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    // In production, you MUST specify the exact origin
-    return callback(null, true);
-  },
+  origin: true, // During development/testing, true allows all but with credentials support
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // Crucial for HttpOnly Cookies
+  credentials: true 
 }));
 
 app.use(express.json());
