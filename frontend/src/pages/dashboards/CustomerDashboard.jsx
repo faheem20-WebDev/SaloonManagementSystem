@@ -336,10 +336,10 @@ const CustomerDashboard = () => {
                         min={new Date().toISOString().slice(0, 16)}
                         max={new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().slice(0, 16)}
                         onChange={(e) => setDate(e.target.value)}
-                        className="input-field bg-white/50 dark:bg-dark-800 text-gray-900 dark:text-gray-200"
+                        className="input-field bg-white dark:bg-dark-800 text-gray-900 dark:text-white border-gray-200 dark:border-white/10"
                         required
                      />
-                     <p className="text-[10px] text-gray-400 mt-1">Bookings are open up to 3 months in advance.</p>
+                     <p className="text-[10px] text-gray-400 mt-1 italic">Bookings are open up to 3 months in advance.</p>
                   </div>
 
                   {/* Payment Method Selection */}

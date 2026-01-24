@@ -5,6 +5,9 @@
 @tailwind utilities;
 
 @layer base {
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-gold-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100 antialiased selection:bg-gold-500 selection:text-black overflow-x-hidden transition-colors duration-500;
     /* Subtle noise texture */
