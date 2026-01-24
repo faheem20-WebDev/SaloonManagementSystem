@@ -8,6 +8,15 @@ const instance = axios.create({
   withCredentials: true, 
 });
 
-console.log("Axios connected to:", BACKEND_URL); // Debugging line
+// Fallback for local development: Add token to headers if it exists in localStorage
+instance.interceptors.request.use((config) => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (user && user.token) {
+    config.headers.Authorization = `Bearer ${user.token}`;
+  }
+  return config;
+});
+
+console.log("Axios connected to:", BACKEND_URL); 
 
 export default instance;

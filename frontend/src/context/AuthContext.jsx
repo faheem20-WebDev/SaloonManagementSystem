@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const { data } = await api.post('auth/login', { email, password });
+      // We keep user object (including token) in localStorage for local dev fallback
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       toast.success(`Welcome back, ${data.name}!`);

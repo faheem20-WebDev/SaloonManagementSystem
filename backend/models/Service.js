@@ -25,7 +25,7 @@ const Service = sequelize.define('Service', {
   },
   image: {
     type: DataTypes.STRING,
-    defaultValue: 'https://via.placeholder.com/300'
+    defaultValue: 'https://placehold.co/300'
   }
 }, {
   timestamps: true
