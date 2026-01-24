@@ -1,36 +1,49 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../../api/axios';
-import AuthContext from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaCalendarPlus, FaHistory, FaClock, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaCalendarAlt, FaDownload, FaReceipt } from 'react-icons/fa';
+import { 
+    FaCalendarPlus, FaHistory, FaClock, FaCheckCircle, FaTimesCircle, 
+    FaHourglassHalf, FaCalendarAlt, FaDownload, FaReceipt, FaCreditCard, 
+    FaExclamationTriangle, FaStar, FaMoneyBillWave 
+} from 'react-icons/fa';
 import DashboardLayout from '../../components/DashboardLayout';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const CustomerDashboard = () => {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   
-  // Booking Form State
+  // States
   const [selectedService, setSelectedService] = useState('');
   const [date, setDate] = useState('');
-  const [receipt, setReceipt] = useState(null); // State for Receipt Modal
+  const [paymentMethod, setPaymentMethod] = useState('onsite'); // 'online' | 'onsite'
+  
+  // Modals
+  const [receipt, setReceipt] = useState(null); 
+  const [cancelModal, setCancelModal] = useState(null); // { appt }
+  const [reviewModal, setReviewModal] = useState(null); // { appt }
+  
+  // Cancellation Form
+  const [cancelReason, setCancelReason] = useState('');
+  
+  // Review Form
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
 
   const fetchData = async () => {
     try {
-      console.log("Fetching appointments...");
       const [apptRes, servicesRes] = await Promise.all([
          api.get('appointments'),
          api.get('services')
       ]);
-      console.log("Appointments fetched:", apptRes.data);
-      console.log("Services fetched:", servicesRes.data);
-      if (servicesRes.data.length > 0) {
-          console.log("First Service ID type:", typeof servicesRes.data[0].id);
-          console.log("First Service ID value:", servicesRes.data[0].id);
-      }
       setAppointments(apptRes.data);
       setServices(servicesRes.data);
     } catch (error) {
@@ -42,76 +55,139 @@ const CustomerDashboard = () => {
     fetchData();
   }, []);
 
+  // --- BOOKING LOGIC ---
   const handleBook = async (e) => {
     e.preventDefault();
     try {
-      console.log("--- ATTEMPTING BOOKING ---");
-      // Force convert to ensure it's not a string text
       const payload = {
         service: Number(selectedService), 
         date: date,
+        paymentMethod
       };
-      console.log("Sending Payload to Backend:", payload);
-
-      if (!payload.service || isNaN(payload.service)) {
-          toast.error("Please select a valid service");
-          return;
-      }
 
       const res = await api.post('appointments', payload);
       
-      console.log("Booking Response:", res.data);
-      toast.success('Appointment booked successfully!');
-      
-      // Set Receipt Data from Backend Response
-      setReceipt(res.data);
-      
-      fetchData(); // Refresh history
-      setSelectedService('');
-      setDate('');
-      // activeTab remains 'overview' to show receipt modal, or we can switch
+      if (paymentMethod === 'online') {
+          // Navigate to Payment Demo with details
+          // ideally passing state or id
+          navigate('/payment-demo', { state: { appointmentId: res.data.id, amount: res.data.service.price } });
+      } else {
+          toast.success('Appointment booked successfully!');
+          setReceipt(res.data);
+          fetchData();
+          setSelectedService('');
+          setDate('');
+      }
     } catch (error) {
-      console.error("Booking Error:", error);
-      toast.error('Booking failed. Please try again.');
+      toast.error(error.response?.data?.message || 'Booking failed');
     }
   };
 
-  const closeReceipt = () => {
-    setReceipt(null);
-    setActiveTab('history');
+  // --- CANCELLATION LOGIC ---
+  const openCancelModal = (appt) => {
+      setCancelModal(appt);
+      setCancelReason('');
   };
 
-  // Function to download receipt (Simple text version for now, can be upgraded to PDF)
-  const downloadReceipt = () => {
-    if (!receipt) return;
-    const text = `
-      LUXE SALOON RECEIPT
-      -------------------
-      Receipt ID: #${receipt.id}
-      Date: ${new Date().toLocaleDateString()}
-      
-      Customer: ${user.name}
-      Email: ${user.email}
-      
-      Service: ${receipt.service?.name}
-      Price: $${receipt.service?.price}
-      Duration: ${receipt.service?.duration} mins
-      
-      Stylist: ${receipt.worker ? receipt.worker.name : 'Auto-Assign Pending'}
-      Appointment Time: ${new Date(receipt.date).toLocaleString()}
-      
-      Status: ${receipt.status ? receipt.status.toUpperCase() : 'CONFIRMED'}
-      -------------------
-      Thank you for choosing Luxe.
-    `;
-    
-    const element = document.createElement("a");
-    const file = new Blob([text], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `Receipt-${receipt.id}.txt`;
-    document.body.appendChild(element);
-    element.click();
+  const calculateRefund = (apptDate) => {
+      const diffMs = new Date(apptDate) - new Date();
+      const diffHours = diffMs / (1000 * 60 * 60);
+      if (diffHours < 2) return { eligible: false, percent: 0, msg: "Too late to cancel (Less than 2 hrs)" };
+      if (diffHours < 24) return { eligible: true, percent: 80, msg: "80% Refund" };
+      return { eligible: true, percent: 100, msg: "100% Refund" };
   };
+
+  const handleCancelSubmit = async (e) => {
+      e.preventDefault();
+      if (!cancelModal) return;
+      try {
+          await api.post(`appointments/${cancelModal.id}/cancel`, { reason: cancelReason });
+          toast.success('Appointment cancelled');
+          setCancelModal(null);
+          fetchData();
+      } catch (error) {
+          toast.error(error.response?.data?.message || 'Cancellation failed');
+      }
+  };
+
+  // --- REVIEW LOGIC ---
+  const handleReviewSubmit = async (e) => {
+      e.preventDefault();
+      try {
+          await api.post(`appointments/${reviewModal.id}/review`, { rating, comment });
+          toast.success('Review submitted');
+          setReviewModal(null);
+          fetchData(); // Refresh to hide button if logic added
+      } catch (error) {
+          toast.error('Failed to submit review');
+      }
+  };
+
+  // --- PDF GENERATION ---
+  const downloadReceipt = (appt) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFillColor(26, 26, 26); // Dark bg
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(212, 175, 55); // Gold
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("LUXE SALON", pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Premium Styling & Care", pageWidth / 2, 28, { align: 'center' });
+
+    // Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text(`Receipt ID: #${appt.id}`, 15, 55);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, pageWidth - 15, 55, { align: 'right' });
+
+    // Table
+    const tableData = [
+        ['Service', 'Stylist', 'Appointment Date', 'Price'],
+        [
+            appt.service?.name, 
+            appt.worker?.name || 'Pending', 
+            new Date(appt.date).toLocaleString(), 
+            `$${appt.service?.price}`
+        ]
+    ];
+
+    doc.autoTable({
+        startY: 65,
+        head: [tableData[0]],
+        body: [tableData[1]],
+        headStyles: { fillColor: [212, 175, 55], textColor: [26, 26, 26] }, // Gold header
+        theme: 'grid'
+    });
+
+    // Footer
+    const finalY = doc.lastAutoTable.finalY + 20;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Paid: $${appt.service?.price}`, pageWidth - 15, finalY, { align: 'right' });
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100);
+    doc.text("Thank you for choosing Luxe Salon.", pageWidth / 2, finalY + 20, { align: 'center' });
+
+    doc.save(`LuxeReceipt-${appt.id}.pdf`);
+  };
+
+  // --- NOTIFICATION LOGIC ---
+  // Find unpaid online bookings
+  const pendingPayment = appointments.find(a => 
+      a.status === 'confirmed' && 
+      a.paymentMethod === 'online' && 
+      a.paymentStatus === 'unpaid'
+  );
 
   const sidebarItems = [
     { id: 'overview', label: 'Book Appointment', icon: FaCalendarPlus },
@@ -130,58 +206,101 @@ const CustomerDashboard = () => {
           <p className="text-gray-500 dark:text-gray-400">Your personal beauty journey.</p>
        </div>
 
-       {/* RECEIPT MODAL */}
+       {/* DYNAMIC PAYMENT NOTIFICATION */}
        <AnimatePresence>
-         {receipt && (
+       {pendingPayment && (
            <motion.div 
-             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+             initial={{ opacity: 0, y: -20 }}
+             animate={{ opacity: 1, y: 0 }}
+             exit={{ opacity: 0 }}
+             className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-red-500 to-red-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6"
            >
-             <motion.div 
-               initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
-               className="bg-white dark:bg-dark-800 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-gold-500/30 relative"
-             >
-               <div className="text-center mb-6">
-                 <FaReceipt className="mx-auto text-4xl text-gold-500 mb-2" />
-                 <h2 className="text-2xl font-display text-gray-900 dark:text-white">Booking Confirmed</h2>
-                 <p className="text-sm text-gray-500">Your appointment is locked in.</p>
-               </div>
-
-               <div className="space-y-4 mb-8 bg-gray-50 dark:bg-black/20 p-4 rounded-xl text-sm">
-                 <div className="flex justify-between">
-                   <span className="text-gray-500">Booking ID</span>
-                   <span className="font-mono font-bold text-gray-900 dark:text-white">#{receipt.id}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-gray-500">Service</span>
-                   <span className="text-gray-900 dark:text-white">{receipt.service?.name}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-gray-500">Stylist</span>
-                   <span className="text-gold-600 dark:text-gold-400 font-medium">{receipt.worker ? receipt.worker.name : 'Assigned on arrival'}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span className="text-gray-500">Time</span>
-                   <span className="text-gray-900 dark:text-white">{new Date(receipt.date).toLocaleString()}</span>
-                 </div>
-                 <div className="border-t border-gray-200 dark:border-white/10 pt-2 flex justify-between font-bold text-lg">
-                   <span className="text-gray-900 dark:text-white">Total</span>
-                   <span className="text-gold-600 dark:text-gold-400">${receipt.service?.price}</span>
-                 </div>
-               </div>
-
-               <div className="flex gap-4">
-                 <button onClick={downloadReceipt} className="flex-1 btn-gold py-3 flex items-center justify-center gap-2">
-                   <FaDownload /> Download
-                 </button>
-                 <button onClick={closeReceipt} className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors text-gray-900 dark:text-white">
-                   Close
-                 </button>
-               </div>
-             </motion.div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <FaExclamationTriangle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Action Required</h3>
+                  <p className="opacity-90">Please complete payment for your <strong>{pendingPayment.service?.name}</strong> booking.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/payment-demo', { state: { appointmentId: pendingPayment.id, amount: pendingPayment.service?.price } })}
+                className="w-full md:w-auto px-8 py-3 bg-white text-red-600 font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-lg"
+              >
+                Pay Now
+              </button>
            </motion.div>
-         )}
+       )}
        </AnimatePresence>
+
+       {/* CANCEL MODAL */}
+       {cancelModal && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+               <div className="bg-white dark:bg-dark-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Cancel Appointment?</h3>
+                   
+                   {/* Refund Logic Display */}
+                   {(() => {
+                       const { eligible, percent, msg } = calculateRefund(cancelModal.date);
+                       return (
+                           <div className={`p-4 rounded-xl mb-4 text-sm font-bold ${eligible ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                               Refund Policy: {msg}
+                               {!eligible && <p className="font-normal mt-1">Cancellation window closed.</p>}
+                           </div>
+                       );
+                   })()}
+
+                   <form onSubmit={handleCancelSubmit}>
+                       <label className="block text-sm text-gray-500 mb-2">Reason for cancellation</label>
+                       <textarea 
+                           className="input-field mb-4" 
+                           rows="3" 
+                           required 
+                           value={cancelReason}
+                           onChange={e => setCancelReason(e.target.value)}
+                           placeholder="Please tell us why..."
+                       ></textarea>
+                       <div className="flex gap-3">
+                           <button type="submit" className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors">Confirm Cancellation</button>
+                           <button type="button" onClick={() => setCancelModal(null)} className="flex-1 border border-gray-300 dark:border-white/10 text-gray-500 py-3 rounded-xl">Keep Booking</button>
+                       </div>
+                   </form>
+               </div>
+           </div>
+       )}
+
+       {/* REVIEW MODAL */}
+       {reviewModal && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+               <div className="bg-white dark:bg-dark-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                   <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Rate your Experience</h3>
+                   <form onSubmit={handleReviewSubmit}>
+                       <div className="flex justify-center gap-2 mb-6">
+                           {[1,2,3,4,5].map(star => (
+                               <button 
+                                key={star} 
+                                type="button" 
+                                onClick={() => setRating(star)}
+                                className={`text-3xl transition-colors ${rating >= star ? 'text-gold-500' : 'text-gray-300'}`}
+                               >★</button>
+                           ))}
+                       </div>
+                       <textarea 
+                           className="input-field mb-4" 
+                           rows="3" 
+                           value={comment}
+                           onChange={e => setComment(e.target.value)}
+                           placeholder="How was the service?"
+                       ></textarea>
+                       <div className="flex gap-3">
+                           <button type="submit" className="flex-1 btn-gold py-3">Submit Review</button>
+                           <button type="button" onClick={() => setReviewModal(null)} className="flex-1 border border-gray-300 dark:border-white/10 text-gray-500 py-3 rounded-xl">Cancel</button>
+                       </div>
+                   </form>
+               </div>
+           </div>
+       )}
 
        {/* Overview / Booking Tab */}
        {activeTab === 'overview' && (
@@ -214,14 +333,40 @@ const CustomerDashboard = () => {
                      <input 
                         type="datetime-local"
                         value={date}
+                        min={new Date().toISOString().slice(0, 16)}
+                        max={new Date(new Date().setMonth(new Date().getMonth() + 3)).toISOString().slice(0, 16)}
                         onChange={(e) => setDate(e.target.value)}
                         className="input-field bg-white/50 dark:bg-dark-800 text-gray-900 dark:text-gray-200"
                         required
                      />
+                     <p className="text-[10px] text-gray-400 mt-1">Bookings are open up to 3 months in advance.</p>
+                  </div>
+
+                  {/* Payment Method Selection */}
+                  <div>
+                      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-4">
+                          <button 
+                            type="button"
+                            onClick={() => setPaymentMethod('online')}
+                            className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'online' ? 'border-gold-500 bg-gold-500/10 text-gold-600' : 'border-gray-200 dark:border-white/10 text-gray-500'}`}
+                          >
+                              <FaCreditCard size={24} />
+                              <span className="font-bold text-sm">Pay Online</span>
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={() => setPaymentMethod('onsite')}
+                            className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'onsite' ? 'border-gold-500 bg-gold-500/10 text-gold-600' : 'border-gray-200 dark:border-white/10 text-gray-500'}`}
+                          >
+                              <FaMoneyBillWave size={24} />
+                              <span className="font-bold text-sm">Pay at Salon</span>
+                          </button>
+                      </div>
                   </div>
 
                   <button type="submit" className="btn-gold w-full py-4 text-lg mt-4 shadow-lg dark:shadow-none">
-                    Confirm Reservation
+                    {paymentMethod === 'online' ? 'Proceed to Payment' : 'Confirm Reservation'}
                   </button>
                 </form>
              </div>
@@ -243,12 +388,13 @@ const CustomerDashboard = () => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
-                    className="glass-card-hover p-6 rounded-xl flex flex-col md:flex-row justify-between items-center gap-6"
+                    className="glass-card-hover p-6 rounded-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6"
                   >
-                    <div className="flex items-center gap-6 w-full md:w-auto">
-                      <div className={`h-16 w-16 rounded-2xl flex items-center justify-center border border-gray-200 dark:border-white/5 ${
+                    <div className="flex items-center gap-6 w-full lg:w-auto">
+                      <div className={`h-16 w-16 rounded-2xl flex items-center justify-center border border-gray-200 dark:border-white/5 shrink-0 ${
                          appt.status === 'confirmed' ? 'bg-green-100 dark:bg-green-500/10 text-green-600 dark:text-green-400' :
                          appt.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' :
+                         appt.status === 'cancelled' ? 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400' :
                          'bg-gray-100 dark:bg-gray-800 text-gray-400'
                       }`}>
                          {appt.status === 'confirmed' && <FaCheckCircle size={24} />}
@@ -258,17 +404,45 @@ const CustomerDashboard = () => {
                       </div>
                       <div>
                         <h3 className="font-display text-xl text-gray-900 dark:text-white">{appt.service?.name || 'Service'}</h3>
-                        <p className="text-sm text-gold-600 dark:text-gold-400 mt-1">{format(new Date(appt.date), 'MMMM d, yyyy • h:mm a')}</p>
+                        <p className="text-sm text-gold-600 dark:text-gold-400 mt-1">{format(new Date(appt.date), 'MMM d, yyyy • h:mm a')}</p>
                         <p className="text-xs text-gray-500 mt-1">Stylist: {appt.worker ? appt.worker.name : 'Pending Assignment'}</p>
+                        
+                        {/* Payment Status Tag */}
+                        <div className="mt-2 flex gap-2">
+                             <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
+                                 appt.paymentStatus === 'paid' ? 'border-green-500 text-green-600' :
+                                 appt.paymentStatus === 'refunded' ? 'border-purple-500 text-purple-600' :
+                                 'border-orange-500 text-orange-600'
+                             }`}>
+                                 {appt.paymentStatus || 'UNPAID'}
+                             </span>
+                        </div>
                       </div>
                     </div>
                     
-                    <div className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest border ${
-                        appt.status === 'confirmed' ? 'border-green-200 dark:border-green-500/30 text-green-600 dark:text-green-400' :
-                        appt.status === 'pending' ? 'border-yellow-200 dark:border-yellow-500/30 text-yellow-600 dark:text-yellow-400' :
-                        'border-gray-200 dark:border-gray-500/30 text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {appt.status}
+                    <div className="flex flex-wrap gap-2 w-full lg:w-auto justify-end">
+                        {/* Action Buttons */}
+                        {appt.status === 'completed' && (
+                            <>
+                                <button onClick={() => openCancelModal(appt)} className="text-xs text-red-500 hover:underline disabled:opacity-50" disabled>Completed</button>
+                                <button onClick={() => setReviewModal(appt)} className="px-4 py-2 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gold-500 hover:text-white transition-colors text-xs font-bold uppercase flex items-center gap-2"><FaStar /> Review</button>
+                                <button onClick={() => downloadReceipt(appt)} className="px-4 py-2 rounded-lg bg-gray-900 text-white hover:bg-black transition-colors text-xs font-bold uppercase flex items-center gap-2"><FaDownload /> Receipt</button>
+                            </>
+                        )}
+
+                        {(appt.status === 'confirmed' || appt.status === 'pending') && (
+                            <button onClick={() => openCancelModal(appt)} className="px-4 py-2 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors text-xs font-bold uppercase">Cancel</button>
+                        )}
+
+                        {/* Pay Now if Unpaid Online */}
+                        {appt.paymentStatus === 'unpaid' && appt.paymentMethod === 'online' && appt.status !== 'cancelled' && (
+                             <button 
+                                onClick={() => navigate('/payment-demo', { state: { appointmentId: appt.id, amount: appt.service?.price } })} 
+                                className="px-4 py-2 rounded-lg bg-gold-500 text-white hover:bg-gold-600 transition-colors text-xs font-bold uppercase"
+                             >
+                                Pay Now
+                             </button>
+                        )}
                     </div>
                   </motion.div>
                 ))

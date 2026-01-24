@@ -4,32 +4,36 @@ const User = require('../models/User');
 const protect = async (req, res, next) => {
   let token;
 
-  if (
+  // Check for token in cookies
+  if (req.cookies && req.cookies.token) {
+    token = req.cookies.token;
+  } 
+  // Fallback to Authorization header for backward compatibility or mobile
+  else if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      req.user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ['password'] }
-      });
-
-      if (!req.user) {
-         throw new Error('User not found');
-      }
-
-      next();
-    } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+    token = req.headers.authorization.split(' ')[1];
   }
 
   if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Not authorized, no token' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findByPk(decoded.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!req.user) {
+       return res.status(401).json({ message: 'User not found' });
+    }
+
+    next();
+  } catch (error) {
+    console.error(error);
+    res.status(401).json({ message: 'Not authorized, token failed' });
   }
 };
 

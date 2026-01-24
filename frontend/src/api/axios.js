@@ -1,22 +1,11 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  // Adding the trailing slash is CRITICAL for Axios to join paths correctly
-  baseURL: 'https://muhammadfaheem52006-saloonmanagementsystembackend.hf.space/api/',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  withCredentials: true, // Necessary for HttpOnly Cookies
 });
 
-// Add a request interceptor
-instance.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+// We no longer need the interceptor to manually add the Authorization header
+// because cookies are sent automatically by the browser with each request.
 
 export default instance;

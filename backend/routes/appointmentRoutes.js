@@ -5,6 +5,8 @@ const {
   getAppointments,
   updateAppointmentStatus,
   deleteAppointment,
+  cancelAppointment,
+  addReview
 } = require('../controllers/appointmentController');
 const { protect, admin, worker } = require('../middleware/authMiddleware');
 
@@ -13,7 +15,10 @@ router.route('/')
   .post(protect, addAppointment);
 
 router.route('/:id')
-  .put(protect, worker, updateAppointmentStatus) // Worker or Admin
-  .delete(protect, admin, deleteAppointment); // Admin only
+  .put(protect, worker, updateAppointmentStatus)
+  .delete(protect, admin, deleteAppointment);
+
+router.post('/:id/cancel', protect, cancelAppointment);
+router.post('/:id/review', protect, addReview);
 
 module.exports = router;

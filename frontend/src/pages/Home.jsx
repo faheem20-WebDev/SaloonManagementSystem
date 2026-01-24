@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
 import { Link } from 'react-router-dom';
-import AuthContext from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { FaArrowRight, FaStar } from 'react-icons/fa';
 

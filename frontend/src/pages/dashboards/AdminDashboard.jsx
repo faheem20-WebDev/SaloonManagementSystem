@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
-import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus, FaClock, FaCog, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaUserPlus, FaTrash, FaCalendarAlt, FaUsers, FaUserTie, FaCut, FaPlus, FaClock, FaCog, FaEdit, FaCheck, FaTimes, FaChartLine, FaCrown, FaChartPie } from 'react-icons/fa';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import DashboardLayout from '../../components/DashboardLayout';
 
 const AdminDashboard = () => {
-  console.log("Admin Dashboard Loaded v2"); // Version Check
   const [activeTab, setActiveTab] = useState('bookings');
   const [appointments, setAppointments] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [users, setUsers] = useState([]);
   const [services, setServices] = useState([]);
   const [settings, setSettings] = useState({});
+  const [stats, setStats] = useState({ daily: 0, weekly: 0, monthly: 0, yearly: 0 });
   const [salonHours, setSalonHours] = useState({ shopOpenTime: '09:00', shopCloseTime: '21:00' });
   
   const [newWorker, setNewWorker] = useState({ 
@@ -31,17 +32,19 @@ const AdminDashboard = () => {
   // Fetch initial data for the dashboard
   const fetchData = async () => {
     try {
-      const [apptRes, workersRes, usersRes, servicesRes, settingsRes] = await Promise.all([
+      const [apptRes, workersRes, usersRes, servicesRes, settingsRes, statsRes] = await Promise.all([
          api.get('appointments'),
          api.get('users/workers'),
          api.get('users'),
          api.get('services'),
-         api.get('settings')
+         api.get('settings'),
+         api.get('payment/stats')
       ]);
       setAppointments(apptRes.data);
       setWorkers(workersRes.data);
       setUsers(usersRes.data);
       setServices(servicesRes.data);
+      setStats(statsRes.data);
       
       const s = {};
       if (settingsRes.data && Array.isArray(settingsRes.data)) {
@@ -59,6 +62,9 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
+    // Auto-refresh data every 30 seconds
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const toggleNewWorkerSkill = (serviceId) => {
@@ -180,11 +186,48 @@ const AdminDashboard = () => {
 
   const sidebarItems = [
     { id: 'bookings', label: 'Bookings', icon: FaCalendarAlt },
+    { id: 'revenue', label: 'Revenue & Analytics', icon: FaChartLine },
     { id: 'workers', label: 'Stylists', icon: FaUserTie },
     { id: 'customers', label: 'Customers', icon: FaUsers },
     { id: 'services', label: 'Services', icon: FaCut },
     { id: 'settings', label: 'Settings', icon: FaCog },
   ];
+
+  // --- ANALYTICS CALCULATIONS ---
+  
+  // 1. Revenue Bar Data
+  const revenueChartData = [
+      { name: 'Today', amount: stats.daily },
+      { name: 'This Week', amount: stats.weekly },
+      { name: 'This Month', amount: stats.monthly },
+  ];
+
+  // 2. Service Popularity (Pie Chart)
+  const serviceCounts = {};
+  appointments.forEach(appt => {
+      if(appt.service && appt.service.name) {
+          serviceCounts[appt.service.name] = (serviceCounts[appt.service.name] || 0) + 1;
+      }
+  });
+  const popularServicesData = Object.keys(serviceCounts).map(key => ({
+      name: key,
+      value: serviceCounts[key]
+  })).sort((a,b) => b.value - a.value).slice(0, 5); // Top 5
+  
+  const PIE_COLORS = ['#D4AF37', '#333333', '#999999', '#555555', '#D4C080'];
+
+  // 3. Top Customers (List)
+  const customerCounts = {};
+  appointments.forEach(appt => {
+      if(appt.customer && appt.customer.name) {
+          customerCounts[appt.customer.name] = (customerCounts[appt.customer.name] || 0) + 1;
+      }
+  });
+  const topCustomers = Object.keys(customerCounts).map(key => ({
+      name: key,
+      bookings: customerCounts[key]
+  })).sort((a,b) => b.bookings - a.bookings).slice(0, 3);
+
 
   return (
     <DashboardLayout 
@@ -197,6 +240,127 @@ const AdminDashboard = () => {
             <h1 className="text-4xl font-display text-gray-900 dark:text-white mb-2">{sidebarItems.find(i => i.id === activeTab)?.label}</h1>
             <p className="text-gray-500 dark:text-gray-400">Manage your salon's operations.</p>
         </div>
+
+        {/* REVENUE TAB */}
+        {activeTab === 'revenue' && (
+            <div className="space-y-8 animate-fade-in">
+                {/* 1. Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="glass-panel p-6 rounded-2xl border-l-4 border-gold-500">
+                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">Today's Revenue</p>
+                        <h3 className="text-2xl font-display font-bold text-gray-900 dark:text-white">${stats.daily.toFixed(2)}</h3>
+                    </div>
+                    <div className="glass-panel p-6 rounded-2xl border-l-4 border-blue-500">
+                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">This Week</p>
+                        <h3 className="text-2xl font-display font-bold text-gray-900 dark:text-white">${stats.weekly.toFixed(2)}</h3>
+                    </div>
+                    <div className="glass-panel p-6 rounded-2xl border-l-4 border-green-500">
+                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">This Month</p>
+                        <h3 className="text-2xl font-display font-bold text-gray-900 dark:text-white">${stats.monthly.toFixed(2)}</h3>
+                    </div>
+                    <div className="glass-panel p-6 rounded-2xl border-l-4 border-purple-500">
+                        <p className="text-xs uppercase text-gray-500 font-bold mb-1">Total Year</p>
+                        <h3 className="text-2xl font-display font-bold text-gray-900 dark:text-white">${stats.yearly.toFixed(2)}</h3>
+                    </div>
+                </div>
+
+                {/* 2. Charts Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Revenue Bar Chart (Span 2) */}
+                    <div className="glass-panel p-6 rounded-2xl lg:col-span-2">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2"><FaChartLine className="text-gold-500" /> Revenue Overview</h3>
+                        <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={revenueChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                                    <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                        itemStyle={{ color: '#fff' }}
+                                        formatter={(value) => [`$${value}`, 'Revenue']}
+                                    />
+                                    <Bar dataKey="amount" fill="#D4AF37" radius={[4, 4, 0, 0]} barSize={50} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Service Popularity Pie Chart (Span 1) */}
+                    <div className="glass-panel p-6 rounded-2xl">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2"><FaChartPie className="text-gold-500" /> Top Services</h3>
+                        {popularServicesData.length > 0 ? (
+                            <div className="h-[250px] w-full relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={popularServicesData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {popularServicesData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#1a1a1a', border: 'none', borderRadius: '8px', color: '#fff' }}
+                                            itemStyle={{ color: '#fff' }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                    <span className="text-3xl font-bold text-gray-900 dark:text-white">{appointments.length}</span>
+                                    <span className="text-xs text-gray-500 uppercase tracking-widest">Bookings</span>
+                                </div>
+                            </div>
+                        ) : (
+                             <div className="h-[250px] flex items-center justify-center text-gray-500 text-sm">No data yet</div>
+                        )}
+                        <div className="mt-4 space-y-2">
+                             {popularServicesData.map((s, i) => (
+                                 <div key={s.name} className="flex justify-between items-center text-sm">
+                                     <div className="flex items-center gap-2">
+                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}></div>
+                                         <span className="text-gray-600 dark:text-gray-300">{s.name}</span>
+                                     </div>
+                                     <span className="font-bold text-gray-900 dark:text-white">{s.value}</span>
+                                 </div>
+                             ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. Top Customers Row */}
+                <div className="grid grid-cols-1 gap-6">
+                    <div className="glass-panel p-6 rounded-2xl">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2"><FaCrown className="text-gold-500" /> Top Loyal Clients</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {topCustomers.length > 0 ? topCustomers.map((customer, idx) => (
+                                <div key={idx} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-white/5">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white shadow-lg ${
+                                        idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600' :
+                                        idx === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
+                                        'bg-gradient-to-br from-orange-400 to-orange-600'
+                                    }`}>
+                                        {customer.name.charAt(0)}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-gray-900 dark:text-white">{customer.name}</h4>
+                                        <p className="text-xs text-gold-600 dark:text-gold-400 font-bold uppercase tracking-wide">{customer.bookings} bookings</p>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="col-span-3 text-center text-gray-500 py-4">Not enough data to determine top clients.</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Bookings Tab */}
         {activeTab === 'bookings' && (

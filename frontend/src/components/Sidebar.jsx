@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FaSignOutAlt, FaHome, FaTimes, FaUserCircle } from 'react-icons/fa';
 import { useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import AuthContext from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 
 const Sidebar = ({ title, items, activeItem, onItemClick, mobileOpen, setMobileOpen }) => {
   const { user, logout } = useContext(AuthContext);

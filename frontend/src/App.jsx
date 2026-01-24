@@ -4,6 +4,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import PaymentDemo from './pages/PaymentDemo';
 import ProtectedRoute from './components/ProtectedRoute';
 import CustomerDashboard from './pages/dashboards/CustomerDashboard';
 import WorkerDashboard from './pages/dashboards/WorkerDashboard';
@@ -11,8 +12,9 @@ import AdminDashboard from './pages/dashboards/AdminDashboard';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useContext } from 'react';
-import AuthContext from './context/AuthContext';
+import { AuthContext } from './context/AuthContext';
 import ThemeContext from './context/ThemeContext';
+import CookieConsent from './components/CookieConsent';
 
 const DashboardRedirect = () => {
   const { user } = useContext(AuthContext);
@@ -37,6 +39,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/payment-demo" element={<PaymentDemo />} />
           
           <Route 
             path="/dashboard" 
@@ -50,6 +53,7 @@ function App() {
       </main>
       {!isDashboard && <Footer />}
       <ToastContainer position="bottom-right" theme={theme} />
+      <CookieConsent />
     </div>
   );
 }

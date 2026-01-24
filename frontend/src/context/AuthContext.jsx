@@ -1,12 +1,10 @@
 import { createContext, useState, useEffect } from 'react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
-import jwt_decode from 'jwt-decode';
 
-const AuthContext = createContext();
+export const AuthContext = createContext(); // Named Export
 
 export const AuthProvider = ({ children }) => {
-  // Initialize state from localStorage immediately (Synchronous)
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('user');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -14,40 +12,25 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const verifyToken = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const decoded = jwt_decode(token);
-          // Check if token is expired
-          if (decoded.exp * 1000 < Date.now()) {
-             logout();
-          } else {
-             // Validate token with backend
-             const { data } = await api.get('auth/me');
-             setUser(data);
-             localStorage.setItem('user', JSON.stringify(data));
-          }
-        } catch (error) {
-          console.error("Token verification failed", error);
-          // Only logout if it's a 401 Unauthorized error
-          if (error.response?.status === 401) {
-            logout();
-          }
-        }
-      } else {
-          setUser(null);
-          localStorage.removeItem('user');
+    const verifyUser = async () => {
+      try {
+        const { data } = await api.get('auth/me');
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+      } catch (error) {
+        console.error("Session verification failed");
+        setUser(null);
+        localStorage.removeItem('user');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    verifyToken();
+    verifyUser();
   }, []);
 
   const login = async (email, password) => {
     try {
       const { data } = await api.post('auth/login', { email, password });
-      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       toast.success(`Welcome back, ${data.name}!`);
@@ -61,7 +44,6 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const { data } = await api.post('auth/register', { name, email, password });
-      localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data));
       setUser(data);
       toast.success('Registration successful!');
@@ -72,11 +54,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    toast.info('Logged out successfully');
+  const logout = async () => {
+    try {
+      await api.get('auth/logout');
+    } catch (error) {
+      console.error("Logout error", error);
+    } finally {
+      localStorage.removeItem('user');
+      setUser(null);
+      toast.info('Logged out successfully');
+    }
   };
 
   return (
@@ -86,4 +73,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext;
+export default AuthProvider; // Component is now the Default Export

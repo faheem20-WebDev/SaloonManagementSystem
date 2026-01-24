@@ -2,22 +2,22 @@ const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const Service = require('../models/Service');
 const Settings = require('../models/Settings');
+const Review = require('../models/Review');
+const Transaction = require('../models/Transaction');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/db'); 
+const Stripe = require('stripe');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Helper to check if a time string (HH:mm) is between two others
-// Handles midnight crossing (e.g. 23:00 to 02:00)
 const isTimeBetween = (target, start, end) => {
     if (start <= end) {
         return target >= start && target <= end;
     } else {
-        // Crosses midnight (e.g. start 13:00, end 02:00)
-        // Valid if target is after start (13:00..23:59) OR before end (00:00..02:00)
         return target >= start || target <= end;
     }
 };
 
-// Helper to check if intervals overlap
 const isOverlapping = (startA, endA, startB, endB) => {
     return startA < endB && endA > startB;
 };
@@ -29,122 +29,89 @@ const addAppointment = async (req, res, next) => {
   const t = await sequelize.transaction(); 
 
   try {
-    console.log('--- START BOOKING REQUEST ---');
-    const { service, date } = req.body;
-    console.log('Payload:', req.body);
-
+    const { service, date, paymentMethod } = req.body; 
+    
     if (!service || !date) {
-      throw new Error('Please add all required fields (service and date)');
+      throw new Error('Please provide both a service and a preferred time.');
     }
 
-    // 1. Validate Service
-    console.log('Step 1: Fetching Service...');
-    const serviceObj = await Service.findByPk(service, { transaction: t });
-    if (!serviceObj) {
-        throw new Error('Service not found');
-    }
-    console.log('Service Found:', serviceObj.name, 'Duration:', serviceObj.duration);
-
-    // 2. Calculate Times
-    console.log('Step 2: Calculating Times...');
+    // 1. Validate Date (Past check and 3-month limit)
     const startTime = new Date(date);
-    if (isNaN(startTime.getTime()) || startTime < new Date()) {
-        throw new Error('Invalid or past date provided');
+    const now = new Date();
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(now.getMonth() + 3);
+
+    if (isNaN(startTime.getTime())) {
+        throw new Error('The date format provided is invalid. Please try again.');
     }
 
-    const durationMinutes = serviceObj.duration;
-    const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+    if (startTime < now) {
+        throw new Error('Oops! You have selected a past date. Please choose a future time for your luxury experience.');
+    }
+
+    if (startTime > threeMonthsFromNow) {
+        throw new Error('We are currently only accepting bookings up to 3 months in advance. Please select a closer date.');
+    }
+
+    // 2. Validate Service
+    const serviceObj = await Service.findByPk(service, { transaction: t });
+    if (!serviceObj) throw new Error('We could not find the selected service in our menu.');
+
+    // 3. Calculate Times
+    const endTime = new Date(startTime.getTime() + serviceObj.duration * 60000);
     const startStr = startTime.toTimeString().slice(0, 5);
     const endStr = endTime.toTimeString().slice(0, 5);
-    console.log(`Time Slot: ${startStr} - ${endStr}`);
 
-    // 3. Validate Shop Hours
-    console.log('Step 3: Checking Shop Hours...');
+    // 4. Validate Shop Hours
     const shopOpen = await Settings.findOne({ where: { key: 'shopOpenTime' }, transaction: t });
     const shopClose = await Settings.findOne({ where: { key: 'shopCloseTime' }, transaction: t });
-    
     const openTime = shopOpen ? shopOpen.value : '09:00';
     const closeTime = shopClose ? shopClose.value : '21:00';
-    console.log(`Shop Hours: ${openTime} - ${closeTime}`);
 
     if (!isTimeBetween(startStr, openTime, closeTime) || !isTimeBetween(endStr, openTime, closeTime)) {
-        throw new Error(`Shop is closed. Our hours are ${openTime} to ${closeTime}.`);
+        throw new Error(`We are closed at your selected time. Our premium services are available between ${openTime} and ${closeTime}.`);
     }
 
-    // 4. Find Qualified Workers
-    console.log('Step 4: Finding Workers...');
-    // Note: If isActive column is missing in DB, this might fail. 
-    // Ensure DB sync ran correctly.
-    const allWorkers = await User.findAll({ 
-        where: { role: 'worker' }, // Temporarily removed isActive check to debug if column exists
-        transaction: t
-    });
-    console.log(`Total Workers Found: ${allWorkers.length}`);
-
+    // 5. Find Qualified Workers
+    const allWorkers = await User.findAll({ where: { role: 'worker' }, transaction: t });
     const qualifiedWorkers = allWorkers.filter(worker => {
-        if (worker.isActive === false) return false; // Manual check in JS if DB column issue
-
-        // Skill Match
+        if (worker.isActive === false) return false;
         const workerSkills = Array.isArray(worker.skills) ? worker.skills : (worker.skills ? JSON.parse(worker.skills) : []);
-        console.log(`Worker ${worker.name} Skills:`, workerSkills);
-        
         const hasSkill = workerSkills.includes(service) || workerSkills.includes(String(service));
         if (!hasSkill && workerSkills.length > 0) return false;
-
-        // Shift Match
+        
         const wStart = worker.shiftStart || '09:00';
         const wEnd = worker.shiftEnd || '21:00';
         if (!isTimeBetween(startStr, wStart, wEnd)) return false;
 
-        // Break Check
-        const bStart = worker.breakStart;
-        const bEnd = worker.breakEnd;
-        if (bStart && bEnd && isOverlapping(startStr, endStr, bStart, bEnd)) return false;
-
+        if (worker.breakStart && worker.breakEnd && isOverlapping(startStr, endStr, worker.breakStart, worker.breakEnd)) return false;
         return true;
     });
 
-    console.log(`Qualified Workers: ${qualifiedWorkers.length}`);
-
     if (qualifiedWorkers.length === 0) {
-        const error = new Error('No qualified stylists are available for this service at the selected time.');
-        error.statusCode = 409;
-        throw error;
+        throw new Error('Our experts for this treatment are not available at this specific time. Please try another slot.');
     }
 
-    // 5. Check Conflicts
-    console.log('Step 5: Checking Conflicts...');
-    const conflictingAppointments = await Appointment.findAll({
+    // 6. Check Conflicts
+    const busyWorkerIds = (await Appointment.findAll({
         where: {
             status: { [Op.not]: 'cancelled' },
             workerId: { [Op.in]: qualifiedWorkers.map(w => w.id) },
-            [Op.and]: [
-                { startTime: { [Op.lt]: endTime } }, 
-                { endTime: { [Op.gt]: startTime } }  
-            ]
+            [Op.and]: [{ startTime: { [Op.lt]: endTime } }, { endTime: { [Op.gt]: startTime } }]
         },
         attributes: ['workerId'],
-        transaction: t,
-        lock: true 
-    });
-
-    const busyWorkerIds = conflictingAppointments.map(a => a.workerId);
-    console.log('Busy Worker IDs:', busyWorkerIds);
+        transaction: t
+    })).map(a => a.workerId);
     
     const availableWorkers = qualifiedWorkers.filter(w => !busyWorkerIds.includes(w.id));
-
     if (availableWorkers.length === 0) {
-        const error = new Error('All qualified stylists are busy during this time slot.');
-        error.statusCode = 409;
-        throw error;
+        throw new Error('Our master stylists are fully booked for this slot. We would love to serve you at a different time!');
     }
 
     // Assign
     const selectedWorker = availableWorkers[Math.floor(Math.random() * availableWorkers.length)];
-    console.log(`Assigned: ${selectedWorker.name}`);
 
-    // 6. Create
-    console.log('Step 6: Creating Appointment...');
+    // 7. Create
     const appointment = await Appointment.create({
       customerId: req.user.id,
       workerId: selectedWorker.id,
@@ -152,49 +119,139 @@ const addAppointment = async (req, res, next) => {
       date: startTime,
       startTime: startTime,
       endTime: endTime,
-      status: 'confirmed'
+      status: 'confirmed',
+      paymentMethod: paymentMethod || 'onsite',
+      paymentStatus: 'unpaid' 
     }, { transaction: t });
 
     await t.commit(); 
-    console.log('Booking Successful:', appointment.id);
-
+    
     const fullAppt = await Appointment.findByPk(appointment.id, {
         include: [
-            { model: User, as: 'customer', attributes: ['name', 'email'] },
             { model: User, as: 'worker', attributes: ['name'] },
-            { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] }
+            { model: Service, as: 'service', attributes: ['name', 'price'] }
         ]
     });
 
     res.status(201).json(fullAppt);
-
   } catch (error) {
-    console.error('ERROR TRACE:', error); // Enhanced logging
-    if (t && !t.finished) { await t.rollback(); }
-    const statusCode = error.statusCode || 500;
-    res.status(statusCode).json({ message: error.message });
+    if (t && !t.finished) await t.rollback();
+    res.status(400).json({ message: error.message }); // 400 for validation errors
   }
 };
 
-// @desc    Get appointments
-// @route   GET /api/appointments
-// @access  Private
+// @desc    Cancel Appointment
+const cancelAppointment = async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const appt = await Appointment.findByPk(req.params.id, {
+            include: [{ model: Service, as: 'service' }]
+        });
+
+        if (!appt) return res.status(404).json({ message: 'Appointment not found' });
+        if (appt.customerId !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+        if (appt.status === 'cancelled') return res.status(400).json({ message: 'Already cancelled' });
+
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const cancelCount = await Appointment.count({
+            where: {
+                customerId: req.user.id,
+                status: 'cancelled',
+                updatedAt: { [Op.gte]: today }
+            }
+        });
+        if (cancelCount >= 2) return res.status(400).json({ message: 'You have reached the daily cancellation limit (Max 2). Please contact us if you need further assistance.' });
+
+        const diffMs = new Date(appt.date) - new Date();
+        const diffHours = diffMs / (1000 * 60 * 60);
+
+        if (diffHours < 2) {
+            return res.status(400).json({ message: 'Apologies, appointments cannot be cancelled less than 2 hours before the start time.' });
+        }
+
+        let refundAmount = 0;
+        let refundStatus = 'none';
+
+        if (appt.paymentStatus === 'paid' && appt.paymentMethod === 'online' && appt.transactionId) {
+            const price = parseFloat(appt.service.price);
+            
+            if (diffHours >= 24) refundAmount = price; 
+            else if (diffHours >= 2) refundAmount = price * 0.8; 
+
+            if (refundAmount > 0) {
+                try {
+                    const isPartial = refundAmount < price;
+                    const refundPayload = { payment_intent: appt.transactionId, reason: 'requested_by_customer' };
+                    if (isPartial) refundPayload.amount = Math.round(refundAmount * 100);
+
+                    await stripe.refunds.create(refundPayload);
+                    refundStatus = 'processed';
+                    
+                    const transaction = await Transaction.findOne({ where: { transactionId: appt.transactionId } });
+                    if (transaction) {
+                        transaction.status = isPartial ? 'partially_refunded' : 'refunded';
+                        transaction.refundReason = reason;
+                        await transaction.save();
+                    }
+                } catch (stripeError) {
+                    console.error('Stripe Refund Failed:', stripeError);
+                    return res.status(500).json({ message: 'Cancellation accepted but refund processing failed: ' + stripeError.message });
+                }
+            }
+        }
+
+        appt.status = 'cancelled';
+        appt.cancellationReason = reason;
+        appt.paymentStatus = refundStatus === 'processed' ? 'refunded' : appt.paymentStatus;
+        appt.refundAmount = refundAmount;
+        await appt.save();
+
+        res.json({ message: 'Appointment cancelled successfully.', refundAmount, refundStatus });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Add Review for Worker
+const addReview = async (req, res) => {
+    try {
+        const { rating, comment } = req.body;
+        const appt = await Appointment.findByPk(req.params.id);
+
+        if(!appt) return res.status(404).json({ message: 'Appointment not found' });
+        if(appt.customerId !== req.user.id) return res.status(401).json({ message: 'Unauthorized' });
+        if(appt.status !== 'completed') return res.status(400).json({ message: 'Reviews can only be left for completed appointments.' });
+
+        const review = await Review.create({
+            appointmentId: appt.id,
+            workerId: appt.workerId,
+            customerId: req.user.id,
+            rating,
+            comment
+        });
+
+        res.status(201).json(review);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 const getAppointments = async (req, res, next) => {
   try {
     let where = {};
-    
-    if (req.user.role === 'worker') {
-      where = { workerId: req.user.id };
-    } else if (req.user.role === 'customer') {
-      where = { customerId: req.user.id };
-    }
+    if (req.user.role === 'worker') where = { workerId: req.user.id };
+    else if (req.user.role === 'customer') where = { customerId: req.user.id };
 
     const appointments = await Appointment.findAll({
       where,
       include: [
         { model: User, as: 'customer', attributes: ['name', 'email'] },
         { model: User, as: 'worker', attributes: ['name'] },
-        { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] }
+        { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] },
+        { model: Review } 
       ],
       order: [['date', 'ASC']]
     });
@@ -205,86 +262,28 @@ const getAppointments = async (req, res, next) => {
   }
 };
 
-// @desc    Update appointment status
-// @route   PUT /api/appointments/:id
-// @access  Private (Worker/Admin)
 const updateAppointmentStatus = async (req, res, next) => {
   try {
-    console.log(`--- UPDATE APPOINTMENT STATUS ---`);
-    console.log(`Appointment ID: ${req.params.id}`);
-    console.log(`User ID: ${req.user.id}, Role: ${req.user.role}`);
-    console.log(`Request Body:`, req.body);
-
     const appointment = await Appointment.findByPk(req.params.id);
+    if (!appointment) return res.status(404).json({ message: 'Not found' });
+    if (req.user.role !== 'admin' && req.user.role !== 'worker') return res.status(401).json({ message: 'Unauthorized' });
+    if (req.user.role === 'worker' && appointment.workerId !== req.user.id) return res.status(401).json({ message: 'Unauthorized' });
 
-    if (!appointment) {
-      console.log('Appointment not found');
-      res.status(404);
-      throw new Error('Appointment not found');
-    }
-
-    console.log(`Current Appointment WorkerId: ${appointment.workerId}`);
-
-    if (req.user.role !== 'admin' && req.user.role !== 'worker') {
-      console.log('User not admin or worker');
-      res.status(401);
-      throw new Error('Not authorized');
-    }
-
-    if (req.user.role === 'worker') {
-        // Ensure types match for comparison
-        if (Number(appointment.workerId) !== Number(req.user.id)) {
-            console.log(`Worker ID mismatch. Appt Worker: ${appointment.workerId}, User: ${req.user.id}`);
-            res.status(401);
-            throw new Error('Not authorized to update this appointment');
-        }
-    }
-
-    if (req.user.role === 'admin' && req.body.workerId) {
-        appointment.workerId = req.body.workerId;
-    }
-
-    if (req.body.status) {
-        console.log(`Updating status to: ${req.body.status}`);
-        appointment.status = req.body.status;
-    }
+    if (req.body.status) appointment.status = req.body.status;
+    if (req.body.paymentStatus) appointment.paymentStatus = req.body.paymentStatus;
     
     await appointment.save();
-    console.log('Appointment saved.');
-
-    const updatedAppointment = await Appointment.findByPk(appointment.id, {
-        include: [
-          { model: User, as: 'customer', attributes: ['name', 'email'] },
-          { model: User, as: 'worker', attributes: ['name'] },
-          { model: Service, as: 'service', attributes: ['name', 'price', 'duration'] }
-        ]
-    });
-
-    console.log('Returning updated appointment.');
-    res.status(200).json(updatedAppointment);
+    res.status(200).json(appointment);
   } catch (error) {
-    console.error('ERROR in updateAppointmentStatus:', error);
     next(error);
   }
 };
 
-// @desc    Delete appointment
-// @route   DELETE /api/appointments/:id
-// @access  Private (Admin)
 const deleteAppointment = async (req, res, next) => {
-  try {
-    const appointment = await Appointment.findByPk(req.params.id);
-
-    if (!appointment) {
-      res.status(404);
-      throw new Error('Appointment not found');
-    }
-
-    await appointment.destroy();
-    res.status(200).json({ id: req.params.id });
-  } catch (error) {
-    next(error);
-  }
+    try {
+        await Appointment.destroy({ where: { id: req.params.id } });
+        res.json({ id: req.params.id });
+    } catch(e) { next(e); }
 };
 
 module.exports = {
@@ -292,4 +291,6 @@ module.exports = {
   getAppointments,
   updateAppointmentStatus,
   deleteAppointment,
+  cancelAppointment,
+  addReview
 };

@@ -1,6 +1,6 @@
 import { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import AuthContext from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import ThemeContext from '../context/ThemeContext';
 import { FaBars, FaTimes, FaSun, FaMoon } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';

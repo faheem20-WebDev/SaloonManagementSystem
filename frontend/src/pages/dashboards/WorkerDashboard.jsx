@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import api from '../../api/axios';
-import AuthContext from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import { FaCheck, FaTimes, FaCalendarCheck } from 'react-icons/fa';

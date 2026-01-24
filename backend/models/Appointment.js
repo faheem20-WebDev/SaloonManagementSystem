@@ -24,6 +24,26 @@ const Appointment = sequelize.define('Appointment', {
   status: {
     type: DataTypes.ENUM('pending', 'confirmed', 'completed', 'cancelled'),
     defaultValue: 'pending'
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('online', 'onsite'),
+    defaultValue: 'onsite'
+  },
+  paymentStatus: {
+    type: DataTypes.ENUM('unpaid', 'paid', 'refunded'),
+    defaultValue: 'unpaid'
+  },
+  cancellationReason: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  refundAmount: {
+    type: DataTypes.FLOAT,
+    defaultValue: 0.0
+  },
+  transactionId: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   timestamps: true
