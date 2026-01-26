@@ -12,7 +12,7 @@ import {
 } from 'react-icons/fa';
 import DashboardLayout from '../../components/DashboardLayout';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const CustomerDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -177,7 +177,7 @@ const CustomerDashboard = () => {
         ]
     ];
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 85,
         head: [tableData[0]],
         body: [tableData[1]],
