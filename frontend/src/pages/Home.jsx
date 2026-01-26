@@ -107,7 +107,14 @@ const Home = () => {
                       {packages.map((pkg, idx) => (
                           <motion.div key={pkg.id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.1 }} className="group relative bg-gray-50 dark:bg-dark-900 rounded-[2.5rem] p-2 overflow-hidden border border-gray-100 dark:border-white/5" >
                               <div className="h-80 w-full overflow-hidden rounded-[2rem] relative">
-                                  <img src={pkg.image || "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=1888&auto=format&fit=crop"} alt={pkg.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                  <img 
+                                    src={pkg.image} 
+                                    alt={pkg.name} 
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                    onError={(e) => {
+                                        e.target.src = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=2074&auto=format&fit=crop";
+                                    }}
+                                  />
                                   <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"></div>
                                   <div className="absolute bottom-6 left-6">
                                       <span className="bg-gold-500 text-black px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-lg">${pkg.price}</span>
@@ -139,7 +146,14 @@ const Home = () => {
                 {individualServices.map((service, idx) => (
                     <motion.div key={service.id} initial={{ opacity: 0, x: idx % 2 === 0 ? -30 : 30 }} whileInView={{ opacity: 1, x: 0 }} className="flex flex-col md:flex-row gap-8 items-center" >
                         <div className="w-full md:w-48 h-48 shrink-0 rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white dark:border-white/5">
-                            <img src={service.image || "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1740&q=80"} alt={service.name} className="w-full h-full object-cover" />
+                            <img 
+                                src={service.image} 
+                                alt={service.name} 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?q=80&w=2070&auto=format&fit=crop";
+                                }}
+                            />
                         </div>
                         <div className="flex-1 space-y-4">
                             <div className="flex justify-between items-end border-b border-gray-200 dark:border-white/10 pb-2">

@@ -46,9 +46,12 @@ const Packages = () => {
             >
               <div className="lg:w-2/5 h-64 lg:h-auto relative">
                 <img 
-                  src={pkg.image || "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=1888&auto=format&fit=crop"} 
+                  src={pkg.image} 
                   alt={pkg.name}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = "https://images.unsplash.com/photo-1599351431202-1e0f0137899a?q=80&w=1888&auto=format&fit=crop";
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/20 to-transparent"></div>
               </div>
