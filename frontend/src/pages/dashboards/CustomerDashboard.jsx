@@ -159,7 +159,11 @@ const CustomerDashboard = () => {
     }
 
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(appt.paymentStatus === 'paid' ? [34, 197, 94] : [212, 175, 55]); // Green if paid, Gold if onsite/pending
+    if (appt.paymentStatus === 'paid') {
+        doc.setTextColor(34, 197, 94); // Green
+    } else {
+        doc.setTextColor(212, 175, 55); // Gold
+    }
     doc.text(paymentText, pageWidth / 2, 72, { align: 'center' });
 
     // Table
