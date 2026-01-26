@@ -70,7 +70,6 @@ const Navbar = () => {
 
             {user ? (
                <div className="flex items-center gap-4">
-                  {/* Only show Dashboard link for all logged in users, but we could customize label */}
                   <Link to="/dashboard" className="text-sm font-medium text-gold-600 dark:text-gold-400 hover:text-black dark:hover:text-white transition-colors">
                     {user.role === 'customer' ? 'MY BOOKINGS' : 'DASHBOARD'}
                   </Link>
@@ -84,11 +83,12 @@ const Navbar = () => {
             ) : (
                <div className="flex items-center gap-6">
                  <Link to="/login" className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition-colors">LOGIN</Link>
-                 <Link to="/register">
-                    <button className="bg-gray-900 dark:bg-white text-white dark:text-black px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-gold-500 dark:hover:bg-gold-400 transition-all duration-300 transform hover:scale-105 shadow-lg dark:shadow-none">
-                       Book Now
-                    </button>
-                 </Link>
+                 <button 
+                    onClick={() => navigate('/register')}
+                    className="bg-gray-900 dark:bg-white text-white dark:text-black px-8 py-3 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-gold-500 dark:hover:bg-gold-400 transition-all duration-300 transform hover:scale-105 shadow-lg dark:shadow-none"
+                  >
+                    Book Now
+                 </button>
                </div>
             )}
           </div>

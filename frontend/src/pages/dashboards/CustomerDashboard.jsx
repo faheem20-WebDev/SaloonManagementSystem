@@ -3,7 +3,7 @@ import api from '../../api/axios';
 import { AuthContext } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     FaCalendarPlus, FaHistory, FaClock, FaCheckCircle, FaTimesCircle, 
@@ -24,7 +24,15 @@ const CustomerDashboard = () => {
   // States
   const [selectedService, setSelectedService] = useState('');
   const [date, setDate] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('onsite'); 
+  const [paymentMethod, setPaymentMethod] = useState('onsite');
+  
+  // Modal & Action States
+  const [receipt, setReceipt] = useState(null);
+  const [cancelModal, setCancelModal] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [reviewModal, setReviewModal] = useState(null);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState(''); 
   
   const location = useLocation();
 
@@ -35,7 +43,7 @@ const CustomerDashboard = () => {
          api.get('services')
       ]);
       setAppointments(apptRes.data);
-      setServices(res.data);
+      setServices(servicesRes.data);
 
       // Check for pre-selected service from Landing Page
       if (location.state?.preSelectedServiceId) {

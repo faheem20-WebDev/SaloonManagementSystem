@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
 import { motion } from 'framer-motion';
 import { FaCut, FaArrowRight } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 
 const Services = () => {
   const [services, setServices] = useState([]);
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -20,6 +23,20 @@ const Services = () => {
     };
     fetchServices();
   }, []);
+
+  const handleBooking = (serviceId) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    if (user.role !== 'customer') {
+      toast.info('Admins and Workers cannot book appointments.');
+      return;
+    }
+
+    navigate('/dashboard', { state: { preSelectedServiceId: serviceId } });
+  };
 
   return (
     <div className="min-h-screen pt-32 pb-20 px-6">
@@ -63,7 +80,7 @@ const Services = () => {
                 <div className="flex justify-between items-center pt-6 border-t border-gray-100 dark:border-white/5">
                   <span className="text-xs uppercase tracking-widest text-gray-400 font-bold">{service.duration} Minutes</span>
                   <button 
-                    onClick={() => navigate('/dashboard', { state: { preSelectedServiceId: service.id } })}
+                    onClick={() => handleBooking(service.id)}
                     className="text-gold-600 dark:text-gold-400 font-bold text-sm flex items-center gap-2 group/btn"
                   >
                     BOOK NOW <FaArrowRight className="text-xs group-hover/btn:translate-x-1 transition-transform" />

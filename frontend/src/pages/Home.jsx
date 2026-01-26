@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import api from '../api/axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { toast } from 'react-toastify';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { FaArrowRight, FaGem, FaCheckCircle, FaCut, FaChessKing, FaClock } from 'react-icons/fa';
 
@@ -28,9 +29,29 @@ const Home = () => {
   const handlePackageBooking = (serviceId) => {
       if (!user) {
           navigate('/register', { state: { fromPackage: true, serviceId } });
-      } else {
-          navigate('/dashboard', { state: { preSelectedServiceId: serviceId } });
+          return;
+      } 
+      
+      if (user.role !== 'customer') {
+          toast.info('Admins and Workers cannot book appointments.');
+          return;
       }
+
+      navigate('/dashboard', { state: { preSelectedServiceId: serviceId } });
+  };
+
+  const handleQuickBook = (serviceId) => {
+      if (!user) {
+          navigate('/login');
+          return;
+      }
+
+      if (user.role !== 'customer') {
+          toast.info('Only customers can book appointments.');
+          return;
+      }
+
+      navigate('/dashboard', { state: { preSelectedServiceId: serviceId } });
   };
 
   // Filter services that are "Packages"
@@ -163,7 +184,7 @@ const Home = () => {
                             <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">{service.description}</p>
                             <div className="flex gap-6 items-center text-[10px] uppercase tracking-widest font-bold text-gray-400">
                                 <span className="flex items-center gap-2"><FaClock className="text-gold-500" /> {service.duration} MIN</span>
-                                <Link to="/dashboard" state={{ preSelectedServiceId: service.id }} className="text-gold-600 hover:underline">Quick Book</Link>
+                                <button onClick={() => handleQuickBook(service.id)} className="text-gold-600 hover:underline">Quick Book</button>
                             </div>
                         </div>
                     </motion.div>
