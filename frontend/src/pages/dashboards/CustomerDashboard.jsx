@@ -11,7 +11,7 @@ import {
     FaExclamationTriangle, FaStar, FaMoneyBillWave 
 } from 'react-icons/fa';
 import DashboardLayout from '../../components/DashboardLayout';
-import jsPDF from 'jsPDF';
+import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const CustomerDashboard = () => {
