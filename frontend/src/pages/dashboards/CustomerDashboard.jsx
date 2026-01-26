@@ -24,19 +24,9 @@ const CustomerDashboard = () => {
   // States
   const [selectedService, setSelectedService] = useState('');
   const [date, setDate] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('onsite'); // 'online' | 'onsite'
+  const [paymentMethod, setPaymentMethod] = useState('onsite'); 
   
-  // Modals
-  const [receipt, setReceipt] = useState(null); 
-  const [cancelModal, setCancelModal] = useState(null); // { appt }
-  const [reviewModal, setReviewModal] = useState(null); // { appt }
-  
-  // Cancellation Form
-  const [cancelReason, setCancelReason] = useState('');
-  
-  // Review Form
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
+  const location = useLocation();
 
   const fetchData = async () => {
     try {
@@ -45,7 +35,15 @@ const CustomerDashboard = () => {
          api.get('services')
       ]);
       setAppointments(apptRes.data);
-      setServices(servicesRes.data);
+      setServices(res.data);
+
+      // Check for pre-selected service from Landing Page
+      if (location.state?.preSelectedServiceId) {
+          setSelectedService(location.state.preSelectedServiceId);
+          setActiveTab('overview');
+          // Clear state to avoid re-selection on refresh
+          window.history.replaceState({}, document.title);
+      }
     } catch (error) {
       console.error("Fetch Error:", error);
     }
