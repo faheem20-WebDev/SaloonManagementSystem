@@ -2,6 +2,8 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
+import Services from './pages/Services';
+import Packages from './pages/Packages';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PaymentDemo from './pages/PaymentDemo';
@@ -37,6 +39,8 @@ function App() {
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/packages" element={<Packages />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/payment-demo" element={<PaymentDemo />} />
