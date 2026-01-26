@@ -101,11 +101,49 @@ const updateUser = async (req, res) => {
       res.status(400).json({ message: error.message });
     }
   };
-  
-  module.exports = {
-    getWorkers,
-    createWorker,
-    getAllUsers,
-    deleteUser,
-    updateUser,
-  };
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+const updateProfile = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+
+        if (!user) {
+            res.status(404);
+            throw new Error('User not found');
+        }
+
+        // Users can only update their own bio and image, and maybe name/email
+        const allowedFields = ['name', 'email', 'bio', 'image'];
+        
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                user[field] = req.body[field];
+            }
+        });
+
+        // Workers can't update their own roles or shifts (that's for admin)
+        
+        await user.save();
+        res.status(200).json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            bio: user.bio,
+            image: user.image
+        });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+module.exports = {
+  getWorkers,
+  createWorker,
+  getAllUsers,
+  deleteUser,
+  updateUser,
+  updateProfile,
+};
