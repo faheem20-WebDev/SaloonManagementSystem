@@ -28,6 +28,7 @@ const DashboardRedirect = () => {
   return <CustomerDashboard />;
 };
 
+// Deployment Trigger: Force Vercel to rebuild with latest fixes
 function App() {
   const { theme } = useContext(ThemeContext);
   const location = useLocation();
