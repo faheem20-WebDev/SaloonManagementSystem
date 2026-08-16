@@ -5,7 +5,6 @@ const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://muhammadfaheem52006
 
 const instance = axios.create({
   baseURL: BACKEND_URL,
-  withCredentials: true, 
 });
 
 // Attach token from localStorage to headers for cross-origin authentication
