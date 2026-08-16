@@ -15,8 +15,14 @@ export const AuthProvider = ({ children }) => {
     const verifyUser = async () => {
       try {
         const { data } = await api.get('auth/me');
-        setUser(data);
-        localStorage.setItem('user', JSON.stringify(data));
+        const savedUserStr = localStorage.getItem('user');
+        let savedUser = {};
+        try {
+          savedUser = savedUserStr ? JSON.parse(savedUserStr) : {};
+        } catch (e) {}
+        const updatedUser = { ...savedUser, ...data };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
       } catch (error) {
         console.error("Session verification failed");
         setUser(null);

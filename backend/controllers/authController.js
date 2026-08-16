@@ -23,9 +23,11 @@ const sendTokenResponse = (user, statusCode, res) => {
     .cookie('token', token, options)
     .json({
       _id: user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      token: token
     });
 };
 
@@ -66,9 +68,11 @@ const loginUser = async (req, res) => {
 // @desc    Logout user
 // @route   GET /api/auth/logout
 const logout = async (req, res) => {
-  res.cookie('token', 'none', {
-    expires: new Date(Date.now() + 10 * 1000),
+  res.cookie('token', '', {
+    expires: new Date(0),
     httpOnly: true,
+    secure: true,
+    sameSite: 'none',
   });
 
   res.status(200).json({ message: 'User logged out' });
@@ -78,6 +82,7 @@ const logout = async (req, res) => {
 const getMe = async (req, res) => {
   const user = {
     id: req.user.id,
+    _id: req.user.id,
     name: req.user.name,
     email: req.user.email,
     role: req.user.role,

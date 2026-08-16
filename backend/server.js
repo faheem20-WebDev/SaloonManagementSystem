@@ -14,29 +14,64 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
+// Allowed origins for CORS
+const allowedOrigins = [
+  'https://saloon-management-system-neon.vercel.app',
+  'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000',
+];
+
+if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+if (process.env.FRONTEND_URL && !allowedOrigins.includes(process.env.FRONTEND_URL)) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.warn(`Origin ${origin} not in allowedOrigins list`);
+      return callback(new Error(`CORS error: Origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  optionsSuccessStatus: 200,
+};
+
+// Apply CORS before any other middleware
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cookieParser());
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  max: 200, 
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
 });
 app.use(limiter);
-
-// Update CORS to allow requests with credentials (Cookies)
-const allowedOrigins = [
-  'http://localhost:5173', 
-  'http://localhost:3000',
-  'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app' // Add your Vercel URL here if known
-]; 
-app.use(cors({
-  origin: true, // During development/testing, true allows all but with credentials support
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true 
-}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

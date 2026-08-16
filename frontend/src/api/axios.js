@@ -8,11 +8,18 @@ const instance = axios.create({
   withCredentials: true, 
 });
 
-// Fallback for local development: Add token to headers if it exists in localStorage
+// Attach token from localStorage to headers for cross-origin authentication
 instance.interceptors.request.use((config) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user && user.token) {
-    config.headers.Authorization = `Bearer ${user.token}`;
+  try {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user && user.token) {
+        config.headers.Authorization = `Bearer ${user.token}`;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading auth token:', err);
   }
   return config;
 });

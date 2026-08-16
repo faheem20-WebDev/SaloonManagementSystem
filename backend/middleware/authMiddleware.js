@@ -5,10 +5,10 @@ const protect = async (req, res, next) => {
   let token;
 
   // Check for token in cookies
-  if (req.cookies && req.cookies.token) {
+  if (req.cookies && req.cookies.token && req.cookies.token !== 'none' && req.cookies.token !== '') {
     token = req.cookies.token;
   } 
-  // Fallback to Authorization header for backward compatibility or mobile
+  // Fallback to Authorization header for cross-origin or bearer token auth
   else if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
