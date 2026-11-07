@@ -49,10 +49,16 @@ const getSenderAddress = () => {
  * @param {string} options.resetUrl - Full password reset URL
  */
 const sendEmail = async ({ email, name, resetUrl }) => {
-  const transporter = createTransporter();
+  const transporter = (sendEmail.createTransporter || createTransporter)();
   const recipientName = name ? name.trim() : 'Valued Customer';
   const subject = 'LUXE Saloon - Password Reset Request';
   const from = getSenderAddress();
+
+  // Defense-in-depth: Ensure production email links NEVER point to localhost
+  let safeResetUrl = (resetUrl || '').trim();
+  if (process.env.NODE_ENV === 'production' && (safeResetUrl.includes('localhost') || safeResetUrl.includes('127.0.0.1') || !safeResetUrl.startsWith('https://'))) {
+    safeResetUrl = safeResetUrl.replace(/https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/, 'https://saloon-management-system-neon.vercel.app');
+  }
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -105,7 +111,7 @@ const sendEmail = async ({ email, name, resetUrl }) => {
               <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 32px 0;">
                 <tr>
                   <td align="center" style="border-radius: 6px; background-color: #d4af37;">
-                    <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #0a0a0c; text-decoration: none; border-radius: 6px;">
+                    <a href="${safeResetUrl}" target="_blank" style="display: inline-block; padding: 14px 32px; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #0a0a0c; text-decoration: none; border-radius: 6px;">
                       Reset Password
                     </a>
                   </td>
@@ -124,8 +130,8 @@ const sendEmail = async ({ email, name, resetUrl }) => {
                 If the button above does not work, copy and paste this link into your browser:
               </p>
               <p style="margin: 0; font-size: 12px; line-height: 1.5; word-break: break-all;">
-                <a href="${resetUrl}" target="_blank" style="color: #d4af37; text-decoration: underline;">
-                  ${resetUrl}
+                <a href="${safeResetUrl}" target="_blank" style="color: #d4af37; text-decoration: underline;">
+                  ${safeResetUrl}
                 </a>
               </p>
 
@@ -163,7 +169,7 @@ Hello ${recipientName},
 We received a request to reset the password for your LUXE Saloon account.
 
 Please use the following link to reset your password (valid for 30 minutes):
-${resetUrl}
+${safeResetUrl}
 
 If you did not request this password reset, please ignore this email. Your account remains secure.
 

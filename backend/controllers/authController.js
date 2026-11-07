@@ -122,24 +122,55 @@ const forgotPassword = async (req, res) => {
     const resetToken = user.getResetPasswordToken();
     await user.save({ validate: false });
 
-    // Determine frontend URL for password reset link with trusted origin validation
+    // Determine frontend URL for password reset link with production safety
+    const PRODUCTION_FRONTEND_URL = 'https://saloon-management-system-neon.vercel.app';
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // List of trusted origins
     const trustedOrigins = [
-      'https://saloon-management-system-neon.vercel.app',
-      'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app',
+      PRODUCTION_FRONTEND_URL,
+      process.env.FRONTEND_URL,
+      process.env.CLIENT_URL,
       'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:5000',
-      process.env.CLIENT_URL,
-      process.env.FRONTEND_URL,
     ].filter(Boolean);
 
-    let clientBase = process.env.CLIENT_URL || process.env.FRONTEND_URL;
-    if (req.headers.origin && trustedOrigins.includes(req.headers.origin)) {
-      clientBase = req.headers.origin;
+    let clientBase = '';
+
+    // Check request origin header
+    const requestOrigin = (req.headers.origin || '').trim();
+    if (requestOrigin && trustedOrigins.includes(requestOrigin)) {
+      if (isProduction) {
+        // In production, never accept localhost origin even if client claims it
+        if (!requestOrigin.includes('localhost') && !requestOrigin.includes('127.0.0.1')) {
+          clientBase = requestOrigin;
+        }
+      } else {
+        clientBase = requestOrigin;
+      }
     }
+
+    // If clientBase not resolved from request origin, resolve from environment variables
     if (!clientBase) {
-      clientBase = 'http://localhost:5173';
+      const envUrl = (process.env.FRONTEND_URL || process.env.CLIENT_URL || '').trim();
+      if (isProduction) {
+        // In production, strictly use HTTPS non-localhost domain
+        if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1') && envUrl.startsWith('https://')) {
+          clientBase = envUrl;
+        } else {
+          clientBase = PRODUCTION_FRONTEND_URL;
+        }
+      } else {
+        clientBase = envUrl || 'http://localhost:5173';
+      }
     }
+
+    // Final safety guard: In production, URL MUST be the deployed HTTPS frontend domain, NEVER localhost
+    if (isProduction && (clientBase.includes('localhost') || clientBase.includes('127.0.0.1') || !clientBase.startsWith('https://'))) {
+      clientBase = PRODUCTION_FRONTEND_URL;
+    }
+
     const resetUrl = `${clientBase.replace(/\/$/, '')}/reset-password/${resetToken}`;
 
     // Send password reset email via Gmail SMTP
