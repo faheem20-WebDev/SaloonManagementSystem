@@ -13,24 +13,55 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const verifyUser = async () => {
+      const savedUserStr = localStorage.getItem('user');
+      let token = null;
+      let savedUser = null;
+
+      try {
+        savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        token = savedUser?.token;
+      } catch (e) {
+        // Corrupted JSON in localStorage
+        localStorage.removeItem('user');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      // 1. Guest visitor check: If no token exists, skip the protected /auth/me call
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Logged-in user: Verify stored session with backend
       try {
         const { data } = await api.get('auth/me');
-        const savedUserStr = localStorage.getItem('user');
-        let savedUser = {};
-        try {
-          savedUser = savedUserStr ? JSON.parse(savedUserStr) : {};
-        } catch (e) {}
         const updatedUser = { ...savedUser, ...data };
         setUser(updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
       } catch (error) {
-        console.error("Session verification failed");
-        setUser(null);
-        localStorage.removeItem('user');
+        const status = error.response?.status;
+
+        if (status === 401 || status === 403) {
+          // Token is definitively expired, invalid, or revoked: clear invalid session
+          console.warn("Session expired or token invalid. Session cleared.");
+          setUser(null);
+          localStorage.removeItem('user');
+        } else {
+          // Transient network error (offline, timeout, 5xx server error):
+          // Preserve the existing session in localStorage so the user is not logged out unnecessarily
+          console.warn("Network error during session verification. Preserving cached session:", error.message);
+          if (savedUser) {
+            setUser(savedUser);
+          }
+        }
       } finally {
         setLoading(false);
       }
     };
+
     verifyUser();
   }, []);
 
