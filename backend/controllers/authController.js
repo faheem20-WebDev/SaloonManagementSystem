@@ -129,6 +129,8 @@ const forgotPassword = async (req, res) => {
     // List of trusted origins
     const trustedOrigins = [
       PRODUCTION_FRONTEND_URL,
+      'https://saloon-management-system-fzc0l8s4e-faheem-s-projects-4830cc72.vercel.app',
+      'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app',
       process.env.FRONTEND_URL,
       process.env.CLIENT_URL,
       'http://localhost:5173',

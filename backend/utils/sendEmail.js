@@ -41,6 +41,93 @@ const getSenderAddress = () => {
 };
 
 /**
+ * Builds an RFC 2822 compliant multipart/alternative MIME message for Gmail REST API
+ */
+const makeMimeMessage = ({ from, to, subject, html, text }) => {
+  const boundary = `====_NextPart_${Date.now()}_====`;
+  const messageParts = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    `Content-Transfer-Encoding: 7bit`,
+    '',
+    text,
+    '',
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: 7bit`,
+    '',
+    html,
+    '',
+    `--${boundary}--`
+  ];
+
+  const rawMessage = messageParts.join('\r\n');
+  return Buffer.from(rawMessage)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, ''); // Base64URL encoding
+};
+
+/**
+ * Sends an email using the official Google Gmail REST API over HTTPS (Port 443)
+ * Completely bypasses platform SMTP port restrictions (e.g. Hugging Face Spaces)
+ */
+const sendViaGmailApi = async ({ from, to, subject, html, text, clientId, clientSecret, refreshToken }) => {
+  // 1. Refresh Access Token using OAuth2 Refresh Token over HTTPS (Port 443)
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId.trim(),
+      client_secret: clientSecret.trim(),
+      refresh_token: refreshToken.trim(),
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const errBody = await tokenRes.text();
+    throw new Error(`Gmail OAuth token refresh failed (${tokenRes.status}): ${errBody}`);
+  }
+
+  const tokenData = await tokenRes.json();
+  const accessToken = tokenData.access_token;
+
+  // 2. Generate Base64URL RFC 2822 MIME message
+  const raw = makeMimeMessage({ from, to, subject, html, text });
+
+  // 3. Dispatch to Gmail REST API over HTTPS (Port 443)
+  const sendRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ raw }),
+  });
+
+  if (!sendRes.ok) {
+    const errBody = await sendRes.text();
+    throw new Error(`Gmail REST API send failed (${sendRes.status}): ${errBody}`);
+  }
+
+  const sendData = await sendRes.json();
+  return {
+    success: true,
+    messageId: sendData.id,
+    threadId: sendData.threadId,
+    mode: 'gmail-rest-api',
+  };
+};
+
+/**
  * Send password reset email via Gmail SMTP
  * 
  * @param {Object} options
@@ -49,7 +136,6 @@ const getSenderAddress = () => {
  * @param {string} options.resetUrl - Full password reset URL
  */
 const sendEmail = async ({ email, name, resetUrl }) => {
-  const transporter = (sendEmail.createTransporter || createTransporter)();
   const recipientName = name ? name.trim() : 'Valued Customer';
   const subject = 'LUXE Saloon - Password Reset Request';
   const from = getSenderAddress();
@@ -176,6 +262,32 @@ If you did not request this password reset, please ignore this email. Your accou
 © 2026 LUXE Saloon
   `.trim();
 
+  // 1. Prioritize Gmail REST API over HTTPS (Port 443) if OAuth2 credentials exist
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+
+  if (clientId && clientSecret && refreshToken) {
+    try {
+      const apiResult = await sendViaGmailApi({
+        from,
+        to: email,
+        subject,
+        html: htmlContent,
+        text: textContent,
+        clientId,
+        clientSecret,
+        refreshToken,
+      });
+      return apiResult;
+    } catch (apiErr) {
+      console.error('[Gmail REST API Delivery Error]:', apiErr.message);
+      console.log('[Email Fallback]: Attempting SMTP delivery...');
+    }
+  }
+
+  // 2. Fallback to existing Gmail SMTP via Nodemailer
+  const transporter = (sendEmail.createTransporter || createTransporter)();
   try {
     const info = await transporter.sendMail({
       from,
@@ -188,6 +300,7 @@ If you did not request this password reset, please ignore this email. Your accou
     return {
       success: true,
       messageId: info.messageId,
+      mode: 'gmail-smtp',
     };
   } catch (err) {
     console.error('[SMTP Delivery Error]:', err.message);
@@ -200,5 +313,7 @@ If you did not request this password reset, please ignore this email. Your accou
 
 sendEmail.createTransporter = createTransporter;
 sendEmail.getSenderAddress = getSenderAddress;
+sendEmail.sendViaGmailApi = sendViaGmailApi;
+sendEmail.makeMimeMessage = makeMimeMessage;
 
 module.exports = sendEmail;

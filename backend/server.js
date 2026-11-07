@@ -17,6 +17,7 @@ app.set('trust proxy', 1);
 // Allowed origins for CORS
 const allowedOrigins = [
   'https://saloon-management-system-neon.vercel.app',
+  'https://saloon-management-system-fzc0l8s4e-faheem-s-projects-4830cc72.vercel.app',
   'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
@@ -34,7 +35,8 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps, curl, or server-to-server)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    const normalizedOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.some(o => o.replace(/\/$/, '') === normalizedOrigin)) {
       return callback(null, true);
     } else {
       console.warn(`Origin ${origin} not in allowedOrigins list`);
