@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { Op } = require('sequelize');
 const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -90,9 +93,160 @@ const getMe = async (req, res) => {
   res.status(200).json(user);
 };
 
+// @desc    Forgot password - generate reset token & send email
+// @route   POST /api/auth/forgot-password
+// @access  Public
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, message: 'Please provide an email address' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ where: { email: cleanEmail } });
+
+    // Generic response message to prevent account enumeration
+    const genericSuccessMessage = 'If an account with that email exists, a password reset link has been sent.';
+
+    // If no user exists, return generic success without revealing account absence
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: genericSuccessMessage
+      });
+    }
+
+    // Generate reset token and set expiry on user instance (30 minutes)
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validate: false });
+
+    // Determine frontend URL for password reset link with trusted origin validation
+    const trustedOrigins = [
+      'https://saloon-management-system-neon.vercel.app',
+      'https://muhammadfaheem52006-saloonmanagementsystemfrontend.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:5000',
+      process.env.CLIENT_URL,
+      process.env.FRONTEND_URL,
+    ].filter(Boolean);
+
+    let clientBase = process.env.CLIENT_URL || process.env.FRONTEND_URL;
+    if (req.headers.origin && trustedOrigins.includes(req.headers.origin)) {
+      clientBase = req.headers.origin;
+    }
+    if (!clientBase) {
+      clientBase = 'http://localhost:5173';
+    }
+    const resetUrl = `${clientBase.replace(/\/$/, '')}/reset-password/${resetToken}`;
+
+    // Send password reset email via Gmail SMTP
+    try {
+      await sendEmail({
+        email: user.email,
+        name: user.name,
+        resetUrl,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: genericSuccessMessage
+      });
+    } catch (emailError) {
+      // Revert token fields on email failure so dead tokens do not persist
+      user.resetPasswordToken = null;
+      user.resetPasswordExpire = null;
+      await user.save({ validate: false });
+
+      console.error('Password reset email sending failed:', emailError.message);
+
+      const isProd = process.env.NODE_ENV === 'production';
+      const statusCode = emailError.statusCode && emailError.statusCode < 500 ? emailError.statusCode : 500;
+
+      // In production, do not expose internal SMTP or server details to client
+      return res.status(statusCode).json({
+        success: false,
+        message: isProd
+          ? 'Failed to send password reset email. Please try again later.'
+          : (emailError.message || 'Failed to send password reset email.'),
+        ...(isProd ? {} : { details: emailError.name || 'EmailDeliveryError' })
+      });
+    }
+  } catch (error) {
+    console.error('forgotPassword error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error processing password reset request'
+    });
+  }
+};
+
+// @desc    Reset password using token
+// @route   POST /api/auth/reset-password/:token or POST /api/auth/reset-password
+// @access  Public
+const resetPassword = async (req, res) => {
+  try {
+    const token = req.params.token || req.body.token;
+    const { password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Reset token is missing' });
+    }
+
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Please provide a new password' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long' });
+    }
+
+    // Hash the token received from the client to match against the hashed token in DB
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken,
+        resetPasswordExpire: { [Op.gt]: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired password reset link. Please request a new one.'
+      });
+    }
+
+    // Set new password (beforeUpdate hook will automatically hash it with bcrypt)
+    user.password = password;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully! You can now log in with your new password.'
+    });
+  } catch (error) {
+    console.error('resetPassword error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error resetting password'
+    });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   logout,
   getMe,
+  forgotPassword,
+  resetPassword,
 };

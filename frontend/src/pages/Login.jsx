@@ -84,6 +84,15 @@ const Login = () => {
                        />
                        <label htmlFor="password" className="absolute left-0 -top-3.5 text-gray-500 text-sm transition-all peer-placeholder-shown:text-base peer-placeholder-shown:top-3 peer-focus:-top-3.5 peer-focus:text-gold-500 peer-focus:text-sm">Password</label>
                     </div>
+
+                    <div className="flex justify-end">
+                       <Link
+                         to="/forgot-password"
+                         className="text-xs uppercase tracking-wider text-gray-500 hover:text-gold-500 dark:hover:text-gold-400 transition-colors"
+                       >
+                         Forgot password?
+                       </Link>
+                    </div>
                  </div>
 
                  <div className="flex items-center justify-between">

@@ -1,7 +1,16 @@
 import axios from 'axios';
 
-// Professional way: Priority to ENV, then Fallback
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'https://muhammadfaheem52006-saloonmanagementsystembackend.hf.space/api';
+// Automatic environment detection:
+// When running locally in browser (localhost / 127.0.0.1), route to local Express backend (http://localhost:5000/api)
+// When deployed, prioritize VITE_API_URL, then fall back to production endpoint
+const getBackendUrl = () => {
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return import.meta.env.VITE_DEV_API_URL || 'http://localhost:5000/api';
+  }
+  return import.meta.env.VITE_API_URL || 'https://muhammadfaheem52006-saloonmanagementsystembackend.hf.space/api';
+};
+
+const BACKEND_URL = getBackendUrl();
 
 const instance = axios.create({
   baseURL: BACKEND_URL,

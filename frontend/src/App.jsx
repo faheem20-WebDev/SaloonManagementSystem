@@ -6,6 +6,8 @@ import Services from './pages/Services';
 import Packages from './pages/Packages';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import PaymentDemo from './pages/PaymentDemo';
 import ProtectedRoute from './components/ProtectedRoute';
 import CustomerDashboard from './pages/dashboards/CustomerDashboard';
@@ -44,6 +46,9 @@ function App() {
           <Route path="/packages" element={<Packages />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/payment-demo" element={<PaymentDemo />} />
           
           <Route 
