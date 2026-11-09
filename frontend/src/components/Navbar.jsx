@@ -50,12 +50,6 @@ const Navbar = () => {
               <Link 
                 key={item} 
                 to={item === 'Home' ? '/' : `/${item.toLowerCase()}`}
-                onClick={() => {
-                  if (item === 'About') {
-                    const el = document.getElementById('about');
-                    if (el) el.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
                 className="text-sm uppercase tracking-[0.2em] text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors relative group font-medium"
               >
                 {item}
@@ -158,13 +152,7 @@ const Navbar = () => {
                         <Link 
                             key={item} 
                             to={item === 'Home' ? '/' : `/${item.toLowerCase()}`}
-                            onClick={() => {
-                              setIsOpen(false);
-                              if (item === 'About') {
-                                const el = document.getElementById('about');
-                                if (el) el.scrollIntoView({ behavior: 'smooth' });
-                              }
-                            }}
+                            onClick={() => setIsOpen(false)}
                             className="block text-2xl font-display text-gray-800 dark:text-gray-100 hover:text-gold-600 dark:hover:text-gold-500 transition-colors py-2"
                         >
                             {item}
