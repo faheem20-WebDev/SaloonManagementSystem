@@ -137,7 +137,7 @@ Open `http://localhost:5173` in your browser.
 SaloonManagementSystem/
 ├── frontend/            # React frontend
 ├── backend/            # Node.js backend (API, auth, Stripe)
-├── ScreenShots/            assets of live demo
+├── screenshots/            #Readme ScreenSpts
 
 
 ```
